@@ -1,0 +1,1549 @@
+schemaVersion: 3
+meta:
+  sourceVersionId: c6f85ea7-1229-41d1-ae27-409b615d23db # DO NOT CHANGE - Hex uses this to match up project versions when reimporting the file
+  description: The project analyzes the impact of closing shades or blinds on indoor temperature and heat index using data from Arduino sensors and historical weather data. It demonstrates that closed shades significantly reduce indoor temperature and improve comfort during hot weather.
+  projectId: dac917e3-bc06-472a-a214-167419a9fa8c # DO NOT CHANGE - Unique ID of the project from which this file was generated
+  title: "Throw No Shade: Closed Blinds Lower Temperatures "
+  timezone: null
+  appTheme: SYS_PREF
+  codeLanguage: PYTHON
+  status:
+    name: Completed
+  categories:
+    - name: Deep dive
+  castDecimalsDefault: true
+  logicQueryCacheTimeout:
+    type: disabled
+  publishedQueryCacheTimeout:
+    type: disabled
+  hexType: PROJECT
+  allowExecutionReordering: true
+  prerunApp: false
+  cachePublishedAppState: true
+  refreshStalePublishedApp: false
+  autoRerunApp: true
+projectAssets:
+  dataConnections: []
+  envVars: []
+  secrets: []
+sharedAssets:
+  secrets: []
+  vcsPackages: []
+  dataConnections:
+    - dataConnectionId: e8480949-7368-449c-b922-66d0c52bbad0 # Supabase (postgres)
+  externalFileIntegrations: []
+cells:
+  - cellType: MARKDOWN
+    cellId: 7cd59f0e-a489-4803-9541-56b2e868ec3c # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Intro
+    config:
+      source: |
+        ## Does Closing Shades or Blinds Really Matter?
+        <br>Yes! A lot.
+        <br><br>
+        After conducing my very own <i>scientific</i> experiment (complete with "sensors" and "extension cords"), I discovered that during afternoons with an outdoor temperature above 80.0°F:
+        * With the shades closed, on average, the temperature was 4.6°F cooler and the heat index was 6.7°F lower than outdoors.
+        * But with the blinds open, the temperature was only improved by 1.2°F, and the heat index decrease was only 2.0°F, compared to outside.
+        * At the peak outdoor temperature of 95.0°F and heat index of 106°F, the closed shades provided a whopping 14.2°F reduction in temperature and a heat index slashed by 23.1°F.
+
+        <img src="https://www.jessbodie.com/img/projects/proj_shades2.png" alt="Shades Open and Closed" width="600">     
+
+        ## The Quest for Enlightenment
+        My bedroom boasts three gorgeous, oversized windows that soak up southern sunlight.  I LOVE the sun shining through these windows Fall through Spring.  However. In the summer, my blackout cellular blinds remain closed day and night.
+
+        For two weeks this summer, I embarked on a quest to determine just how much of an impact my beloved blackout cellular blinds had on room temperature. 
+          - First, I kept the shades closed 24/7.  
+          - Next, I enlisted two Arduino sensors from Adafruit to record hourly temperature and humidity.  
+             - The "interior shady" sensor was perched in the middle of my bedroom--always shady.  
+             - The "interior sunny" sensor was taped to the interior of the window, on the sunny side of the shades, basking in all that glorious sunlight.   
+        <img src="https://www.jessbodie.com/img/projects/proj_shades.png" alt="Sample Image" width="200">     
+             - To add some extra flair to my analysis, I also retrieved local outdoor temperature and humidity data from Open-Meteo. 
+             - And yes, most nights we used the A/C. This was accounted for in the data analysis. 
+  - cellType: CODE
+    cellId: 0f819351-0cdc-4620-8808-c29ed9eba3c7 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Import Libraries
+    config:
+      source: |-
+        import pandas as pd
+        import pytz
+        import json
+  - cellType: CODE
+    cellId: e180e443-8737-4e40-b72c-191ab8fc57b0 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Read Censor Data from Saved CSVs
+    config:
+      source: |
+        # Data was captured from Arduino Adafruit Temperature and Humidity Sensors in July 2024
+        # Import saved sensor data from CSVs
+
+        # Compare Sensor - Interior-Sunny - Between the window and shades, in the path of direct sunlight
+        hourly_data_compare_csv = 'raw_sensor-2024-08-13_compare.csv'
+        hourly_data_compare = pd.read_csv(hourly_data_compare_csv)
+        hourly_data_compare['hour'] = pd.to_datetime(hourly_data_compare['hour']) # Convert to datetime
+
+        # Control Sensor - Interior-Shady - in middle of room, always in shade
+        hourly_data_csv = 'raw_sensor-2024-08-13_control.csv'
+        hourly_data = pd.read_csv(hourly_data_csv)
+        hourly_data['hour'] = pd.to_datetime(hourly_data['hour']) # Convert to datetime
+  - cellType: CODE
+    cellId: c5bf4007-6d4e-448e-86a3-4b6d7b070211 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Convert Date(s) and Time(s) to Standardized ET Format
+    config:
+      source: |
+        # Convert times to Standardized ET Format
+        def convert_time_ET(times):
+
+            new_times = pd.to_datetime(times)
+            if isinstance(new_times, pd.Series):
+                if new_times.dt.tz is None:
+                    new_times = times.dt.tz_localize('UTC')
+                new_times = new_times.dt.tz_convert('US/Eastern')
+            else:    
+                if new_times.tzinfo is None:
+                    new_times = times.tz_localize('UTC')
+
+                new_times = new_times.tz_convert('US/Eastern')
+
+            return new_times
+
+        # Identify the common start and end times for both data sets
+        hourly_compare_start = hourly_data_compare['hour'].min()
+        hourly_compare_end = hourly_data_compare['hour'].max()
+        hourly_start = hourly_data['hour'].min()
+        hourly_end = hourly_data['hour'].max()
+        time_range_start = max(hourly_compare_start, hourly_start)
+        time_range_end = min(hourly_compare_end, hourly_end)
+
+        time_range_start_ET = convert_time_ET(time_range_start)
+        time_range_end_ET = convert_time_ET(time_range_end)
+  - cellType: CODE
+    cellId: 1845ce70-26d4-4f3a-bc9b-5066fd36b9b2 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Reduce Control Data and Compare Data and Merge into Combined Data Frame 
+    config:
+      source: |-
+        # Reduce and clarify data from sensors
+        def simplify_sql_to_df(query_results, display): 
+            simplifed_df = pd.DataFrame(query_results)
+            simplifed_df = simplifed_df[['hour', 'Temperature (C) - median', 'Relative Humidity (%) - median', 'Battery (%) - median']]
+            simplifed_df = simplifed_df.rename(
+                columns={'Temperature (C) - median': f'{display} Temp (C)', 
+                'Relative Humidity (%) - median': f'{display} Humidity (RH%)', 
+                'Battery (%) - median':f'{display} Battery (%)'}
+                )
+            return simplifed_df
+
+        # Create merged data frame of Control and Compare data from reduced data sets
+        temp_hum_control_df = simplify_sql_to_df(hourly_data, 'Control')
+        temp_hum_compare_df = simplify_sql_to_df(hourly_data_compare, 'Compare')
+
+        temp_hum_combined_df = pd.merge(
+            temp_hum_control_df[['hour', 'Control Temp (C)', 'Control Humidity (RH%)']], 
+            temp_hum_compare_df[['hour', 'Compare Temp (C)', 'Compare Humidity (RH%)']], 
+            on='hour'
+        )
+
+        temp_hum_combined_df
+  - cellType: CODE
+    cellId: 5c269e44-b34c-4932-82e3-96320ddbb042 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Convert Sensor Data to Fahrenheit and Eastern Time
+    config:
+      source: |
+        convert_temp_hum_df = temp_hum_combined_df.copy()
+
+        # Convert times to ET
+        convert_temp_hum_df['Hour (ET)'] = convert_time_ET(convert_temp_hum_df['hour'])    
+
+        # Convert temperature from Celsius to Fahrenheit
+        def convert_temp_F(temperatures):
+            new_temperatures = (temperatures * 1.8) + 32
+            return new_temperatures
+
+        convert_temp_hum_df['Control Temp (F)'] = convert_temp_F(convert_temp_hum_df['Control Temp (C)'])
+        convert_temp_hum_df['Compare Temp (F)'] = convert_temp_F(convert_temp_hum_df['Compare Temp (C)'])
+        convert_temp_hum_df
+  - cellType: CODE
+    cellId: 4e696978-05c8-4a3f-b88a-a92f110aab41 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Get Historical Local Weather Data from Open-Meteo
+    config:
+      source: |-
+        # Get historical local weather data from Open-Meteo
+        lat_api = 40.62993477126549
+        lon_api = -74.03587065767233
+
+        # While experiment was running, and sesnor data was recorded hourly, comparable weather data from public API, Open-Meteo, was retrieved
+        # import requests
+        # date_start_API = time_range_start_ET.date()
+        # date_end_API = time_range_end_ET.date()
+        # url = f'https://api.open-meteo.com/v1/forecast?latitude={lat_api}&longitude={lon_api}&hourly=temperature_2m,relative_humidity_2m&temperature_unit=fahrenheit&timezone=UTC&start_date={date_start_API}&end_date={date_end_API}'
+        # response = requests.get(url)
+        # if response.status_code == 200:
+        #     json_data = response.json()
+        #     open_meteo_df = pd.DataFrame(json_data)       
+        #     # Save the JSON data to a file
+        #     with open('open-meteo_data.json', 'w') as file:
+        #         json.dump(json_data, file, indent=4)
+        # else:
+        #     print(f"Error: {response.status_code}")
+
+        # Since data is historical, use downloaded JSON data
+        json_dl_file = open('open-meteo_data_2024-08-13.json')
+        json_dl_data = json.load(json_dl_file)
+        open_meteo_df = pd.DataFrame(json_dl_data)
+
+        open_meteo_df
+  - cellType: CODE
+    cellId: 9e4a9614-bab2-42a5-971e-af93fa233f59 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Reduce and Flatten Temperature and Humidity Data from Open-Meteo 
+    config:
+      source: |-
+        # Reduce and flatten Open-Meteo Data
+        open_meteo_df_initial = pd.DataFrame(open_meteo_df['hourly'])
+
+        simple_open_meteo_df = pd.DataFrame({
+            'time': open_meteo_df_initial['hourly']['time'],
+            'temperature_2m': open_meteo_df_initial['hourly']['temperature_2m'],
+            'relative_humidity_2m': open_meteo_df_initial['hourly']['relative_humidity_2m']
+        })
+
+        simple_open_meteo_df['Hour (ET)'] = convert_time_ET(pd.to_datetime(simple_open_meteo_df['time']))
+
+        simple_open_meteo_df
+  - cellType: MARKDOWN
+    cellId: 32f71bef-1f4a-4b11-8b51-b3892e221e70 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Subhead
+    config:
+      source: "## Raw Data: Temperature & Humidity"
+  - cellType: CODE
+    cellId: c5f8a869-c9ff-4e56-85a8-0e4ead70a1d4 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: "Temperature and Humidity Data from: Sensors and Open-Meteo "
+    config:
+      source: |-
+        # Merge the Open-Meteo temp and humidity with the already-merged control and compare temp and humidity data
+        temp_hum_w_public_df = pd.merge(
+            convert_temp_hum_df[['Hour (ET)', 'Control Temp (F)', 'Compare Temp (F)', 'Control Humidity (RH%)', 'Compare Humidity (RH%)']], 
+            simple_open_meteo_df[['Hour (ET)', 'temperature_2m', 'relative_humidity_2m']], 
+            on='Hour (ET)'
+        )
+        temp_hum_w_public_df['Date/Hour'] = temp_hum_w_public_df['Hour (ET)']
+        temp_hum_w_public_df['Hour (ET)'] = temp_hum_w_public_df['Hour (ET)'].dt.tz_localize(None)
+        temp_hum_w_public_df = temp_hum_w_public_df.rename(columns={'temperature_2m':'Outdoor Temp (F)', 'relative_humidity_2m': 'Outdoor Humidity (RH%)'})
+
+        temp_hum_w_public_df
+  - cellType: CODE
+    cellId: d6017253-05b6-4f0e-ae79-6a7ff4caa42a # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Calculate the Heat Index
+    config:
+      source: |-
+        # Calculate the Heat Index, per NOAA: National Weather Service
+        # If the Heat Index is above 80 degrees, use this formula:
+        # HI = 0.5 * {T + 61.0 + [(T-68.0)*1.2] + (RH*0.094)}
+        # If the Heat Index is below 80 degrees, use this formula:
+        # HI = -42.379 + 2.04901523*T + 10.14333127*RH - .22475541*T*RH - .00683783*T*T - .05481717*RH*RH + .00122874*T*T*RH + .00085282*T*RH*RH - .00000199*T*T*RH*RH
+
+        def calc_heat_index(temp, rh):
+            heat_index = 0.5 * (temp + 61.0 + ((temp-68.0)*1.2) + (rh*0.094))
+            if (heat_index <= 80):
+                return round(heat_index, 1) 
+            else:
+                heat_index = -42.379 + 2.04901523*temp + 10.14333127*rh - .22475541*temp*rh - .00683783*temp*temp - .05481717*rh*rh + .00122874*temp*temp*rh + .00085282*temp*rh*rh - .00000199*temp*temp*rh*rh
+                return round(heat_index, 1) 
+
+        # Calculate the Heat Index for inside, behind the shades
+        temp_hum_w_public_df['Control Heat Index (F)'] = temp_hum_w_public_df.apply(
+            lambda row: calc_heat_index(row['Control Temp (F)'], row['Control Humidity (RH%)']), 
+            axis=1
+        )
+
+        # Calculate the Heat Index for inside, in the sun
+        temp_hum_w_public_df['Compare Heat Index (F)'] = temp_hum_w_public_df.apply(
+            lambda row: calc_heat_index(row['Compare Temp (F)'], row['Compare Humidity (RH%)']), 
+            axis=1
+        )
+
+        # Calculate the Heat Index for outdoors
+        temp_hum_w_public_df['Outdoor Heat Index (F)'] = temp_hum_w_public_df.apply(
+            lambda row: calc_heat_index(row['Outdoor Temp (F)'], row['Outdoor Humidity (RH%)']), 
+            axis=1
+        )
+
+        temp_hum_w_public_df.head(20)
+  - cellType: CODE
+    cellId: 32f0fed7-e3fc-425f-bc4b-746ae88f84e8 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Find the Outdoor  Max Temperature and Heat Index
+    config:
+      source: |
+        outdoor_temp_max = temp_hum_w_public_df['Outdoor Temp (F)'].max()
+        outdoor_HI_max = temp_hum_w_public_df['Outdoor Heat Index (F)'].max()
+  - cellType: CODE
+    cellId: 5296cb8f-3405-4367-b8e0-9b015aeb7af9 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Capture and Specify when A/C Is On
+    config:
+      source: |-
+        # To better interpret data, detail when A/C is in use
+
+        # Estimate that A/C goes on at approximately 8pm and off at 7am, specify overnight exception
+        ac_start_time = pd.to_datetime('20:00:00').time()
+        ac_end_time = pd.to_datetime('07:00:00').time()
+        ac_start_away = pd.to_datetime('2024-07-26 16:00:00')
+        ac_end_away =  pd.to_datetime('2024-07-27 20:00:00')
+
+        def ac_is_on(date_time):
+            eval_date_time = pd.to_datetime(date_time)
+            eval_time = eval_date_time.time()
+            if ((ac_start_time <= eval_time or eval_time <= ac_end_time) and (ac_start_away >= eval_date_time or eval_date_time >= ac_end_away)):
+                return outdoor_HI_max
+            return 0
+
+        temp_hum_w_public_df['A/C Is On'] = temp_hum_w_public_df['Hour (ET)'].apply(ac_is_on)
+
+        # Reorder columns for readability
+        new_col_order = ['Hour (ET)','Control Temp (F)','Compare Temp (F)','Outdoor Temp (F)','Control Humidity (RH%)','Compare Humidity (RH%)','Outdoor Humidity (RH%)','Control Heat Index (F)','Compare Heat Index (F)','Outdoor Heat Index (F)','A/C Is On','Date/Hour']
+        temp_hum_w_public_df = temp_hum_w_public_df[new_col_order]
+
+        temp_hum_w_public_df
+  - cellType: MARKDOWN
+    cellId: 8b99d01a-27af-4d9b-971c-a871df495c21 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Subhead
+    config:
+      source: "## Visualizing the Findings: Temperature & Humidity"
+  - cellType: CHARTV2
+    cellId: ab08b877-f28b-441b-a665-c0079313c6dd # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Visualization of Temperatures Comparison
+    config:
+      height: null
+      chartSpec:
+        type: layered
+        layers:
+          - id: b8751453-44d3-4d0c-a006-b383a432eee5
+            xAxis:
+              type: datetime
+              style:
+                grid:
+                  style: solid
+                ticks: {}
+                labels: {}
+              title: " "
+              dataFrameColumn: Hour (ET)
+            series:
+              - id: 35eed888-f476-4010-bdf8-df761630cabe
+                name: Interior Shady Temp (F)
+                type: line
+                axis:
+                  type: number
+                  style:
+                    min: 64
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Temperature (F)
+                  numberFormat:
+                    format: NUMBER
+                    currency: USD
+                    columnType: NUMBER
+                    showSeparators: false
+                    numDecimalDigits: -1
+                    abbreviateLargeNumbers: true
+                dataFrameColumns:
+                  - Control Temp (F)
+                colorOrder: ascending
+                color:
+                  type: static
+                  dataType: datetime
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: solid
+                width: 3
+              - id: 2f9f381a-1ba0-45ca-bcbd-754278f5f94f
+                name: Interior Sunny Temp (F)
+                type: line
+                axis:
+                  type: number
+                  style:
+                    min: 64
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Temperature (F)
+                  numberFormat:
+                    format: NUMBER
+                    currency: USD
+                    columnType: NUMBER
+                    showSeparators: false
+                    numDecimalDigits: -1
+                    abbreviateLargeNumbers: true
+                dataFrameColumns:
+                  - Compare Temp (F)
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#F58518"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: solid
+                width: 3
+              - id: 7ad69943-c237-43f3-a1ea-1ccec9110c10
+                type: line
+                axis:
+                  type: number
+                  style:
+                    min: 64
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Temperature (F)
+                  numberFormat:
+                    format: NUMBER
+                    currency: USD
+                    columnType: NUMBER
+                    showSeparators: false
+                    numDecimalDigits: -1
+                    abbreviateLargeNumbers: true
+                dataFrameColumns:
+                  - Outdoor Temp (F)
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#E45756"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: solid
+                width: 3
+              - id: d1364aac-f77a-4166-91dd-8321d22666dd
+                type: area
+                axis:
+                  type: number
+                  style:
+                    min: 64
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Temperature (F)
+                  numberFormat:
+                    format: NUMBER
+                    currency: USD
+                    columnType: NUMBER
+                    showSeparators: false
+                    numDecimalDigits: -1
+                    abbreviateLargeNumbers: true
+                dataFrameColumns:
+                  - A/C Is On
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#4C78A8"
+                  aggregate: sum
+                opacity:
+                  type: static
+                  value: 0.15
+                tooltip:
+                  type: auto
+                line: true
+                point: false
+                interpolate: step
+                normalize: false
+            dataFrame: temp_hum_w_public_df
+            seriesGroups:
+              - - 35eed888-f476-4010-bdf8-df761630cabe
+                - 2f9f381a-1ba0-45ca-bcbd-754278f5f94f
+                - 7ad69943-c237-43f3-a1ea-1ccec9110c10
+                - d1364aac-f77a-4166-91dd-8321d22666dd
+        settings:
+          legend:
+            position: right
+          tooltip: true
+          selectionEnabled: false
+      chartSelection: {}
+      colorMappings: {}
+      resultVariable: chart_result_4
+      outputResult: false
+      displayType: CHART
+      displayTableConfig: null
+  - cellType: CHARTV2
+    cellId: d7ea4e03-0e74-400b-bf40-9bdb45810d71 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Visualization of Heat Index Comparison
+    config:
+      height: null
+      chartSpec:
+        type: layered
+        layers:
+          - id: b8751453-44d3-4d0c-a006-b383a432eee5
+            xAxis:
+              type: datetime
+              style:
+                grid:
+                  style: solid
+                ticks: {}
+                labels: {}
+              title: " "
+              dataFrameColumn: Hour (ET)
+            series:
+              - id: 35eed888-f476-4010-bdf8-df761630cabe
+                name: Interior Shady Heat Index (F)
+                type: line
+                axis:
+                  type: number
+                  style:
+                    min: 64
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Temperature (F)
+                dataFrameColumns:
+                  - Control Heat Index (F)
+                colorOrder: ascending
+                color:
+                  type: static
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: solid
+                width: 3
+              - id: 2f9f381a-1ba0-45ca-bcbd-754278f5f94f
+                name: Interior Sunny Heat Index (F)
+                type: line
+                axis:
+                  type: number
+                  style:
+                    min: 64
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Temperature (F)
+                dataFrameColumns:
+                  - Compare Heat Index (F)
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#F58518"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: solid
+                width: 3
+              - id: 7ad69943-c237-43f3-a1ea-1ccec9110c10
+                type: line
+                axis:
+                  type: number
+                  style:
+                    min: 64
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Temperature (F)
+                dataFrameColumns:
+                  - Outdoor Heat Index (F)
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#E45756"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: solid
+                width: 3
+              - id: d1364aac-f77a-4166-91dd-8321d22666dd
+                type: area
+                axis:
+                  type: number
+                  style:
+                    min: 64
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Temperature (F)
+                dataFrameColumns:
+                  - A/C Is On
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#4C78A8"
+                  aggregate: sum
+                opacity:
+                  type: static
+                  value: 0.15
+                tooltip:
+                  type: auto
+                line: false
+                point: false
+                interpolate: step
+                normalize: false
+            dataFrame: temp_hum_w_public_df
+            seriesGroups:
+              - - 35eed888-f476-4010-bdf8-df761630cabe
+                - 2f9f381a-1ba0-45ca-bcbd-754278f5f94f
+                - 7ad69943-c237-43f3-a1ea-1ccec9110c10
+                - d1364aac-f77a-4166-91dd-8321d22666dd
+        settings:
+          legend:
+            position: right
+          tooltip: true
+          selectionEnabled: false
+      chartSelection: {}
+      colorMappings: {}
+      resultVariable: chart_result_8
+      outputResult: false
+      displayType: CHART
+      displayTableConfig: null
+  - cellType: CHARTV2
+    cellId: d9f810db-b12b-48bd-a075-06e96f778b5e # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Visualization of Humidity Comparison
+    config:
+      height: null
+      chartSpec:
+        type: layered
+        layers:
+          - id: c634cfea-fadd-4382-bc20-c5a754c38c8d
+            xAxis:
+              type: datetime
+              style:
+                grid:
+                  style: solid
+                ticks: {}
+                labels: {}
+              title: " "
+              dataFrameColumn: Hour (ET)
+            series:
+              - id: 698d35de-ef88-41f6-9d4e-c26faa3c9d12
+                name: Interior Shady Humidity (RH%)
+                type: line
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Relative Humidity (%)
+                dataFrameColumns:
+                  - Control Humidity (RH%)
+                colorOrder: ascending
+                color:
+                  type: static
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: solid
+                width: 3
+              - id: 26bd7442-b9e8-4359-8197-44aebd0fa143
+                name: Interior  Sunny Humidity (RH%)
+                type: line
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Relative Humidity (%)
+                dataFrameColumns:
+                  - Compare Humidity (RH%)
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#F58518"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: solid
+                width: 3
+              - id: edc03549-cec9-4292-a6b1-25060209a0c1
+                type: line
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Relative Humidity (%)
+                dataFrameColumns:
+                  - Outdoor Humidity (RH%)
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#E45756"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: solid
+                width: 3
+              - id: 9e5044d1-6052-4ab8-a8c1-084d93d4da4a
+                type: area
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Relative Humidity (%)
+                dataFrameColumns:
+                  - A/C Is On
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#4C78A8"
+                opacity:
+                  type: static
+                  value: 0.15
+                tooltip:
+                  type: auto
+                line: true
+                point: false
+                normalize: false
+            dataFrame: temp_hum_w_public_df
+            seriesGroups:
+              - - 698d35de-ef88-41f6-9d4e-c26faa3c9d12
+                - 26bd7442-b9e8-4359-8197-44aebd0fa143
+                - edc03549-cec9-4292-a6b1-25060209a0c1
+                - 9e5044d1-6052-4ab8-a8c1-084d93d4da4a
+        settings:
+          legend:
+            position: right
+          tooltip: true
+          selectionEnabled: false
+      chartSelection: {}
+      colorMappings: {}
+      resultVariable: chart_result_5
+      outputResult: false
+      displayType: CHART
+      displayTableConfig: null
+  - cellType: CODE
+    cellId: 2af8a46e-7b71-4eab-affb-ec92df6e8e68 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Calculate the difference in Temperatures and Heat Indices between Control v Compare and Control v Outdoors
+    config:
+      source: |-
+        # Calculate the differences in temperature between Control vs Compare and Control vs Outdoors
+        compare_temp_HI_df = temp_hum_w_public_df[['Hour (ET)', 'Control Temp (F)', 'Compare Temp (F)', 'Outdoor Temp (F)','Control Heat Index (F)', 'Compare Heat Index (F)', 'Outdoor Heat Index (F)']].copy()
+        compare_temp_HI_df.loc[:, 'Temp: Compare - Control'] = (compare_temp_HI_df['Compare Temp (F)'] - compare_temp_HI_df['Control Temp (F)']).round(2)
+        compare_temp_HI_df.loc[:, 'Temp: Outdoor - Control'] = (compare_temp_HI_df['Outdoor Temp (F)'] - compare_temp_HI_df['Control Temp (F)']).round(2)
+        compare_temp_HI_df.loc[:, 'Temp: Outdoor - Compare'] = (compare_temp_HI_df['Outdoor Temp (F)'] - compare_temp_HI_df['Compare Temp (F)']).round(2)
+        compare_temp_HI_df.loc[:, 'HI: Compare - Control'] = (compare_temp_HI_df['Compare Heat Index (F)'] - compare_temp_HI_df['Control Heat Index (F)']).round(2)
+        compare_temp_HI_df.loc[:, 'HI: Outdoor - Control'] = (compare_temp_HI_df['Outdoor Heat Index (F)'] - compare_temp_HI_df['Control Heat Index (F)']).round(2)
+        compare_temp_HI_df.loc[:, 'HI: Outdoor - Compare'] = (compare_temp_HI_df['Outdoor Heat Index (F)'] - compare_temp_HI_df['Compare Heat Index (F)']).round(2)
+        compare_temp_HI_df.loc[:, 'Baseline'] = 0
+
+        compare_temp_HI_df
+  - cellType: CHARTV2
+    cellId: 620ccb89-3343-4c31-bcfe-dbc6db19e10e # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Visualization of Differences in Temperatures and Heat Indices Between Interior Shady and Interior Sunny, Interior Shady and Outdoors
+    config:
+      height: null
+      chartSpec:
+        type: layered
+        layers:
+          - id: b862e84d-2f14-4a7b-963c-068aadc4fbfd
+            xAxis:
+              type: datetime
+              style:
+                grid:
+                  style: solid
+                ticks: {}
+                labels: {}
+              title: " "
+              dataFrameColumn: Hour (ET)
+            series:
+              - id: 13342c35-3f48-4c53-8728-79373e22da60
+                type: line
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Degrees Difference (F)
+                dataFrameColumns:
+                  - Baseline
+                colorOrder: ascending
+                color:
+                  type: static
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: solid
+                width: 5
+              - id: f400bca8-6648-4605-bcd9-7a70fcb63bb4
+                type: area
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Degrees Difference (F)
+                dataFrameColumns:
+                  - "Temp: Compare - Control"
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#F58518"
+                opacity:
+                  type: static
+                  value: 0.8
+                tooltip:
+                  type: auto
+                line: false
+                point: false
+                normalize: false
+              - id: de47f6db-70c5-43de-928f-a634b6ec31fe
+                type: area
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Degrees Difference (F)
+                dataFrameColumns:
+                  - "Temp: Outdoor - Control"
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#E45756"
+                opacity:
+                  type: static
+                  value: 0.5
+                tooltip:
+                  type: auto
+                line: false
+                point: false
+                normalize: false
+              - id: 1c950417-b588-4f8b-8482-447ae949a631
+                name: "Heat Index: Compare - Control"
+                type: line
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Degrees Difference (F)
+                dataFrameColumns:
+                  - "HI: Compare - Control"
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#F58518"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: dashed
+                width: 1
+              - id: e9b75ed5-65bb-4452-ace9-fbe735e3b59e
+                name: "Heat Index: Outdoor - Control"
+                type: line
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Degrees Difference (F)
+                dataFrameColumns:
+                  - "HI: Outdoor - Control"
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#E45756"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: dashed
+                width: 1
+            dataFrame: compare_temp_HI_df
+            seriesGroups:
+              - - 13342c35-3f48-4c53-8728-79373e22da60
+                - f400bca8-6648-4605-bcd9-7a70fcb63bb4
+                - de47f6db-70c5-43de-928f-a634b6ec31fe
+                - 1c950417-b588-4f8b-8482-447ae949a631
+                - e9b75ed5-65bb-4452-ace9-fbe735e3b59e
+        settings:
+          legend:
+            position: right
+          tooltip: true
+          selectionEnabled: false
+      chartSelection: {}
+      colorMappings: {}
+      resultVariable: chart_result_10
+      outputResult: false
+      displayType: CHART
+      displayTableConfig: null
+  - cellType: MARKDOWN
+    cellId: 2e9d9766-14f1-48d4-ae28-f06ddf1bac42 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Subhead
+    config:
+      source: |-
+        #### It's All Relative
+        Examining the differences of the Interior versus Outdoor temperatures, and Interior versus Interior Sunny temperatures sheds a light on the power of simply closing blinds.
+  - cellType: CHARTV2
+    cellId: 59d9fd35-1fcc-45f1-85d5-004758986f9e # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Visualization of Differences in Temperatures Between Interior Shady versus Interior Sunny and Interior Shady versus Outdoors
+    config:
+      height: null
+      chartSpec:
+        type: layered
+        layers:
+          - id: b862e84d-2f14-4a7b-963c-068aadc4fbfd
+            xAxis:
+              type: datetime
+              style:
+                grid:
+                  style: solid
+                ticks: {}
+                labels: {}
+              title: " "
+              dataFrameColumn: Hour (ET)
+            series:
+              - id: 13342c35-3f48-4c53-8728-79373e22da60
+                name: Interior / Baseline
+                type: line
+                axis:
+                  type: number
+                  style:
+                    max: 24
+                    min: -14
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Degrees Difference (F)
+                  aggregate: sum
+                dataFrameColumns:
+                  - Baseline
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#BAB0AC"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: solid
+                width: 5
+              - id: f400bca8-6648-4605-bcd9-7a70fcb63bb4
+                name: Difference Between Interior Shady and Outdoor
+                type: area
+                axis:
+                  type: number
+                  style:
+                    max: 24
+                    min: -14
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Degrees Difference (F)
+                dataFrameColumns:
+                  - "Temp: Outdoor - Control"
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#E45756"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                line: true
+                point: false
+                normalize: false
+              - id: de47f6db-70c5-43de-928f-a634b6ec31fe
+                name: Difference Between Interior Shady and Intrerior Sunny
+                type: area
+                axis:
+                  type: number
+                  style:
+                    max: 24
+                    min: -14
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Degrees Difference (F)
+                dataFrameColumns:
+                  - "Temp: Compare - Control"
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#F58518"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                line: true
+                point: false
+                normalize: false
+            dataFrame: compare_temp_HI_df
+            seriesGroups:
+              - - 13342c35-3f48-4c53-8728-79373e22da60
+                - f400bca8-6648-4605-bcd9-7a70fcb63bb4
+                - de47f6db-70c5-43de-928f-a634b6ec31fe
+        settings:
+          legend:
+            position: bottom
+          tooltip: true
+          selectionEnabled: false
+      chartSelection: {}
+      colorMappings: {}
+      resultVariable: chart_result_6
+      outputResult: false
+      displayType: CHART
+      displayTableConfig: null
+  - cellType: CHARTV2
+    cellId: fc26a75a-d315-483d-a312-f7c72cfb98fb # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Visualization of the difference between the Outdoor Temperatures and Interior Shady and Interior Sunny
+    config:
+      height: null
+      chartSpec:
+        type: layered
+        layers:
+          - id: b862e84d-2f14-4a7b-963c-068aadc4fbfd
+            xAxis:
+              type: datetime
+              style:
+                grid:
+                  style: solid
+                ticks: {}
+                labels: {}
+              title: " "
+              dataFrameColumn: Hour (ET)
+            series:
+              - id: 13342c35-3f48-4c53-8728-79373e22da60
+                name: Interior / Baseline
+                type: line
+                axis:
+                  type: number
+                  style:
+                    max: 24
+                    min: -14
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Degrees Difference (F)
+                dataFrameColumns:
+                  - Baseline
+                colorOrder: ascending
+                color:
+                  type: static
+                  dataType: number
+                  aggregate: sum
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: solid
+                width: 5
+              - id: f400bca8-6648-4605-bcd9-7a70fcb63bb4
+                name: Difference Between Interior and Outdoor
+                type: line
+                axis:
+                  type: number
+                  style:
+                    max: 24
+                    min: -14
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Degrees Difference (F)
+                dataFrameColumns:
+                  - "Temp: Outdoor - Control"
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#E45756"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: solid
+              - id: de47f6db-70c5-43de-928f-a634b6ec31fe
+                name: Difference Between Interior Sunny and Outdoor
+                type: line
+                axis:
+                  type: number
+                  style:
+                    max: 24
+                    min: -14
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Degrees Difference (F)
+                dataFrameColumns:
+                  - "Temp: Outdoor - Compare"
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#F58518"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: solid
+            dataFrame: compare_temp_HI_df
+            seriesGroups:
+              - - 13342c35-3f48-4c53-8728-79373e22da60
+                - f400bca8-6648-4605-bcd9-7a70fcb63bb4
+                - de47f6db-70c5-43de-928f-a634b6ec31fe
+        settings:
+          legend:
+            position: bottom
+          tooltip: true
+          selectionEnabled: false
+      chartSelection: {}
+      colorMappings: {}
+      resultVariable: chart_result_11
+      outputResult: false
+      displayType: CHART
+      displayTableConfig: null
+  - cellType: MARKDOWN
+    cellId: d0f1fcbc-905e-4d13-991c-85b41f075d7f # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Explanation
+    config:
+      source: |-
+        #### It's Not the Heat... It's the Humidity!
+        Indeed, when examining the heat index data, the impact of the shades is even more dramatic:
+  - cellType: CHARTV2
+    cellId: 9773403f-f5c9-4bac-af9a-1981c2b50717 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Visualization of Differences in Heat Indices Between Interior Shady versus Interior Sunny and Interior Shady versus Outdoors
+    config:
+      height: null
+      chartSpec:
+        type: layered
+        layers:
+          - id: b862e84d-2f14-4a7b-963c-068aadc4fbfd
+            xAxis:
+              type: datetime
+              style:
+                grid:
+                  style: solid
+                ticks: {}
+                labels: {}
+              title: " "
+              dataFrameColumn: Hour (ET)
+            series:
+              - id: 13342c35-3f48-4c53-8728-79373e22da60
+                name: Interior / Baseline
+                type: line
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Degrees Difference (F)
+                dataFrameColumns:
+                  - Baseline
+                colorOrder: ascending
+                color:
+                  type: static
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: solid
+                width: 5
+              - id: f400bca8-6648-4605-bcd9-7a70fcb63bb4
+                name: Difference Between Interior Shady and Outdoor
+                type: area
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Degrees Difference (F)
+                dataFrameColumns:
+                  - "HI: Outdoor - Control"
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#E45756"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                line: true
+                point: false
+                normalize: false
+              - id: de47f6db-70c5-43de-928f-a634b6ec31fe
+                name: Difference Between Interior Shady and Intrerior Sunny
+                type: area
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Degrees Difference (F)
+                dataFrameColumns:
+                  - "HI: Compare - Control"
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#F58518"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                line: true
+                point: false
+                normalize: false
+            dataFrame: compare_temp_HI_df
+            seriesGroups:
+              - - 13342c35-3f48-4c53-8728-79373e22da60
+                - f400bca8-6648-4605-bcd9-7a70fcb63bb4
+                - de47f6db-70c5-43de-928f-a634b6ec31fe
+        settings:
+          legend:
+            position: bottom
+          tooltip: true
+          selectionEnabled: false
+      chartSelection: {}
+      colorMappings: {}
+      resultVariable: chart_result_9
+      outputResult: false
+      displayType: CHART
+      displayTableConfig: null
+  - cellType: CODE
+    cellId: 755c1d74-f793-4610-8271-350e34a0c844 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Reduce Temperature Data to  Typical Peak Sunny Periods and Temperature Greater than Threshold Temperature
+    config:
+      source: |
+        # Reduce data to examine peak sunny periods only
+        peak_sun_start = pd.to_datetime('11:00:00').time()
+        peak_sun_end = pd.to_datetime('19:00:00').time()
+
+        peak_sun_temp_df = compare_temp_HI_df.copy()
+        peak_sun_temp_df = peak_sun_temp_df.drop(columns=['Baseline'])
+        peak_sun_temp_df['time'] = peak_sun_temp_df['Hour (ET)'].dt.time
+        peak_sun_temp_df = peak_sun_temp_df[(peak_sun_temp_df['time'] >= peak_sun_start) & (peak_sun_temp_df['time'] <= peak_sun_end)]
+
+        # Reduce data further to when the Local Outdoor Temperature is greater than the threshold emperature
+        THRESHOLD_TEMP = 80.0
+        peak_sun_temp_df = peak_sun_temp_df[(peak_sun_temp_df['Outdoor Temp (F)'] > THRESHOLD_TEMP)]
+
+        peak_sun_temp_df
+  - cellType: TEXT
+    cellId: a82de6d0-bc78-4c1d-9e22-3f45188170c3 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: null
+    config:
+      richText:
+        - type: h2
+          children:
+            - text: "Conclusion: The Bright Side of Shade"
+  - cellType: CODE
+    cellId: 6da652a5-62cd-4afa-815b-483dfc170bb5 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Calculate Differences Between Interior Shady vs Outdoors and Interior Shady vs Interior Sunny 
+    config:
+      source: |-
+        # Calculate overall average, range,and avg during afternoons, above threshold temp
+        def diffs_stats(temp_data, data_HI):
+
+            return [
+                    {
+                    'Average Temperature Difference': temp_data.mean().round(1),
+                    'Average Heat Index Difference': data_HI.mean().round(1),
+                    'Max Temperature Difference': round(temp_data.max(), 1),
+                    'Max Heat Index Difference': round(data_HI.max(), 1)
+                }
+            ]
+        diffs_compare = diffs_stats(peak_sun_temp_df.loc[:, 'Temp: Outdoor - Compare'], peak_sun_temp_df.loc[:, 'HI: Outdoor - Compare'])
+        diffs_outdoor = diffs_stats(peak_sun_temp_df.loc[:, 'Temp: Outdoor - Control'], peak_sun_temp_df.loc[:, 'HI: Outdoor - Control'])
+
+        diffs_summary = []
+        diffs_summary.extend(diffs_outdoor)
+        diffs_summary.extend(diffs_compare)
+        diffs_summary_df = pd.DataFrame(diffs_summary, index=['Shady Interior vs Outdoors (°F)', 'Sunny Interior vs Outdoors (°F)'])
+        # diffs_summary_df
+        diffs_summary_display_df = diffs_summary_df.transpose()
+        diffs_summary_display_df
+  - cellType: CODE
+    cellId: 068864cb-4134-44d1-b48e-297b25368cd0 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Summarize Findings
+    config:
+      source: |
+        avg_diff_outdoor_temp = diffs_summary_df.loc['Shady Interior vs Outdoors (°F)', 'Average Temperature Difference']
+        avg_diff_sunny_temp = diffs_summary_df.loc['Sunny Interior vs Outdoors (°F)', 'Average Temperature Difference']
+        avg_diff_outdoor_HI = diffs_summary_df.loc['Shady Interior vs Outdoors (°F)', 'Average Heat Index Difference']
+        avg_diff_sunny_HI = diffs_summary_df.loc['Sunny Interior vs Outdoors (°F)', 'Average Heat Index Difference']
+        max_diff_outdoor_temp = diffs_summary_df.loc['Shady Interior vs Outdoors (°F)', 'Max Temperature Difference']
+        max_diff_outdoor_HI = diffs_summary_df.loc['Shady Interior vs Outdoors (°F)', 'Max Heat Index Difference']
+
+        display_summary = (f'''During afternoons with an outdoor temperature above {THRESHOLD_TEMP:.0f}°F:
+        * On average, the closed shades reduced the temperature by {avg_diff_outdoor_temp:.1f}°F and improved the heat index by {avg_diff_outdoor_HI:.1f}°F.
+        * On average, with open blinds, the temperature was only {avg_diff_sunny_temp:.1f}°F cooler than the outdoors, and a heat index decrease of {avg_diff_sunny_HI:.1f}°F.
+        * On the hottest day, the closed shades provided a {max_diff_outdoor_temp:.1f}°F reduction in temperature and {max_diff_outdoor_HI:.1f}°F drop in heat index.
+        ''')
+        print(display_summary)
+  - cellType: MARKDOWN
+    cellId: 610d1ec1-faf2-4f8e-bd83-8169d2450647 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Summary 
+    config:
+      source: |-
+        During afternoons with an outdoor temperature above 80°F:
+        * On average, the closed shades reduced the temperature by 4.6°F and improved the heat index by 6.7°F.
+        * On average, with open blinds, the temperature was only 1.2°F cooler than the outdoors, and a heat index decrease of 2.0°F.
+        * On the hottest day, the closed shades provided a 14.2°F reduction in temperature and 23.1°F drop in heat index.
+  - cellType: MARKDOWN
+    cellId: fd9e20ed-e8ea-46e1-bf31-a28ac8f0ec54 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Data Sources
+    config:
+      source: |
+        <br>
+
+        ## Guiding Lights: Sources & Credits
+        ### Data Sources
+        #### Temperature/humidity/pressure sensor
+        * Adafruit BME280 I2C or SPI Temperature Humidity Pressure Sensor - STEMMA QT
+        * https://www.adafruit.com/product/2652
+
+        #### CO2, Temperature, & humidity sensor
+        * Adafruit SCD-40 - True CO2, Temperature and Humidity Sensor - STEMMA QT / Qwiic
+        * https://www.adafruit.com/product/5187
+
+        #### Weather Data from Open-Meteo
+        * https://open-meteo.com/en/docs
+
+
+        ### Formulas
+        #### Heat Index from NOAA, National Weather Service 
+        * https://www.wpc.ncep.noaa.gov/html/heatindex_equation.shtml
+appLayout:
+  visibleMetadataFields:
+    - DESCRIPTION
+    - AUTHOR
+    - LAST_EDITED
+    - LAST_RUN
+    - CATEGORIES
+    - STATUS
+    - TABLE_OF_CONTENTS
+    - NAME
+  fullWidth: false
+  tabs:
+    - name: Tab 1
+      rows:
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 7cd59f0e-a489-4803-9541-56b2e868ec3c
+                  sharedFilterId: null
+                  height: null
+                  showLabel: false
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 32f71bef-1f4a-4b11-8b51-b3892e221e70
+                  sharedFilterId: null
+                  height: null
+                  showLabel: false
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: c5f8a869-c9ff-4e56-85a8-0e4ead70a1d4
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 8b99d01a-27af-4d9b-971c-a871df495c21
+                  sharedFilterId: null
+                  height: null
+                  showLabel: false
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: ab08b877-f28b-441b-a665-c0079313c6dd
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: d7ea4e03-0e74-400b-bf40-9bdb45810d71
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 2e9d9766-14f1-48d4-ae28-f06ddf1bac42
+                  sharedFilterId: null
+                  height: null
+                  showLabel: false
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 59d9fd35-1fcc-45f1-85d5-004758986f9e
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: d0f1fcbc-905e-4d13-991c-85b41f075d7f
+                  sharedFilterId: null
+                  height: null
+                  showLabel: false
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 9773403f-f5c9-4bac-af9a-1981c2b50717
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: a82de6d0-bc78-4c1d-9e22-3f45188170c3
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 6da652a5-62cd-4afa-815b-483dfc170bb5
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 610d1ec1-faf2-4f8e-bd83-8169d2450647
+                  sharedFilterId: null
+                  height: null
+                  showLabel: false
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: fd9e20ed-e8ea-46e1-bf31-a28ac8f0ec54
+                  sharedFilterId: null
+                  height: null
+                  showLabel: false
+sharedFilters: []
