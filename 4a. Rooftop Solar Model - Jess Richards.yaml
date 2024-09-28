@@ -1,0 +1,1466 @@
+schemaVersion: 3
+meta:
+  sourceVersionId: 9e0af49f-9ce0-4f59-80b9-bda76ef594c0 # DO NOT CHANGE - Hex uses this to match up project versions when reimporting the file
+  description: This project models a residential rooftop solar (photovoltaic) system
+  projectId: 3a2e9542-22f3-478d-a9fc-346519355166 # DO NOT CHANGE - Unique ID of the project from which this file was generated
+  title: 4a. Rooftop Solar Model - Jess Richards
+  timezone: America/Los_Angeles
+  appTheme: SYS_PREF
+  codeLanguage: PYTHON
+  status: null
+  categories: []
+  castDecimalsDefault: true
+  logicQueryCacheTimeout: null
+  publishedQueryCacheTimeout: null
+  hexType: PROJECT
+  allowExecutionReordering: true
+  prerunApp: false
+  cachePublishedAppState: true
+  refreshStalePublishedApp: false
+  autoRerunApp: true
+projectAssets:
+  dataConnections: []
+  envVars: []
+  secrets: []
+sharedAssets:
+  secrets:
+    - secretName: NREL_API_EMAIL
+    - secretName: NREL_API_KEY
+  vcsPackages: []
+  dataConnections: []
+  externalFileIntegrations: []
+cells:
+  - cellType: TEXT
+    cellId: 045c4d78-aaa4-4148-aa21-e1d0df48d5a2 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: null
+    config:
+      richText:
+        - type: h2
+          children:
+            - text: Learning Goals
+        - type: paragraph
+          children:
+            - text: "In this notebook, we're going to model a residential rooftop solar (photovoltaic) system. We'll be simulating the electricity generation of our system based on:"
+        - type: ul
+          children:
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: home & roof properties (location, orientation, angle)
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: photovoltaic system characteristics
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: historical weather data
+        - type: p
+          children:
+            - text: ""
+        - type: p
+          children:
+            - text: |
+                Throughout this notebook, we'll model a rooftop solar system, but the modeling would apply to other PV installations as well.
+        - type: p
+          children:
+            - text: "We'll be relying heavily on a 3rd party library, called pvlib, to do the heavy-lifting in fetching weather data and modeling the system: "
+            - url: https://pvlib-python.readthedocs.io/
+              type: a
+              children:
+                - text: https://pvlib-python.readthedocs.io/
+            - text: ""
+  - cellType: TEXT
+    cellId: 2672c067-e0fe-42aa-bc09-cd058ec7520d # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: null
+    config:
+      richText:
+        - type: h3
+          children:
+            - text: Terminology
+        - type: ul
+          children:
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - bold: true
+                      text: "Photovoltaic (PV) panels:"
+                    - text: ' the technical term for what we typically refer to as "solar panels" '
+                - type: ul
+                  children:
+                    - type: li
+                      children:
+                        - type: lic
+                          children:
+                            - text: 'Wikipedia: "Photovoltaics is the conversion of light into electricity using semiconducting materials that exhibit the photovoltaic effect"'
+                    - type: li
+                      children:
+                        - type: lic
+                          children:
+                            - text: One other method to harness energy from the sun is "Solar thermal" collection, which concentrates and collects heat from the sun.
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - bold: true
+                      text: "Solar Irradiance:"
+                    - text: " The power per unit area received from the Sun (watts per square meter)"
+                - type: ul
+                  children:
+                    - type: li
+                      children:
+                        - type: lic
+                          children:
+                            - bold: true
+                              text: "Direct Normal Irradiance (DNI):"
+                            - text: " Solar radiation that comes directly from the sun"
+                    - type: li
+                      children:
+                        - type: lic
+                          children:
+                            - bold: true
+                              text: "Diffuse Horizontal Irradiance (DHI):"
+                            - text: " Solar radiation that does not arrive on a direct path from the sun, e.g. scattered by clouds"
+                    - type: li
+                      children:
+                        - type: lic
+                          children:
+                            - bold: true
+                              text: "Global Horizontal Irradiance (GHI):"
+                            - text: " Total solar radiation received by a horizonal surface - a mathematical combination of the other two: "
+                            - code: true
+                              text: GHI = DNI * cos(solar zenith angle) + DHI
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - bold: true
+                      text: System Advisor Model (SAM)
+                - type: ul
+                  children:
+                    - type: li
+                      children:
+                        - type: lic
+                          children:
+                            - text: A public data source, curated by the US National Renewable Energy Laboratory (NREL) agency
+                    - type: li
+                      children:
+                        - type: lic
+                          children:
+                            - text: It is "a free techno-economic software model that facilitates decision-making for people in the renewable energy industry"
+                    - type: li
+                      children:
+                        - type: lic
+                          children:
+                            - text: Relevant to our interests, it contains detailed models of PV panels and inverters
+                    - type: li
+                      children:
+                        - type: lic
+                          children:
+                            - text: ""
+                            - url: https://sam.nrel.gov/
+                              type: a
+                              children:
+                                - text: https://sam.nrel.gov/
+                            - text: ""
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - bold: true
+                      text: "Physical Solar Model (PSM) "
+                    - text: a.k.a. solar weather
+                - type: ul
+                  children:
+                    - type: li
+                      children:
+                        - type: lic
+                          children:
+                            - text: Another public data source, also from NREL
+                    - type: li
+                      children:
+                        - type: lic
+                          children:
+                            - text: It is "satellite-derived measurements of solar radiation and meteorological data".
+                    - type: li
+                      children:
+                        - type: lic
+                          children:
+                            - text: In this notebook we'll call this "solar weather" & it includes solar irradiance and weather data for a particular location throughout the year.
+                    - type: li
+                      children:
+                        - type: lic
+                          children:
+                            - text: PSM datasets come in historical (pertaining to a particular year) and TMY (Typical Meteorological Year, averaged across several years).
+                    - type: li
+                      children:
+                        - type: lic
+                          children:
+                            - text: ""
+                            - url: https://developer.nrel.gov/docs/solar/nsrdb/psm3-2-2-download/
+                              type: a
+                              children:
+                                - text: https://developer.nrel.gov/docs/solar/nsrdb/psm3-2-2-download/
+                            - text: ""
+  - cellType: TEXT
+    cellId: a5a9e90e-a54b-4cec-95e8-7f79c4222e17 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: null
+    config:
+      richText:
+        - type: h3
+          children:
+            - text: Coding Level 0-1
+        - type: paragraph
+          children:
+            - text: Run the existing notebook, but update it to use different home attributes.
+        - type: paragraph
+          children:
+            - text: "In the next cells we're going to:"
+        - type: ol
+          children:
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: Import 3rd party libraries
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: "Set input variables "
+                    - bold: true
+                      text: (this is where you'll make some changes!)
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: "Fetch public data: historical solar weather"
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: "Model: Use our `pvlib` library to simulate the electricity output of our particular PV system over a year of historical solar weather"
+  - cellType: CODE
+    cellId: 88d82dec-df29-473f-a862-364df14faaa1 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: 1. Imports
+    config:
+      source: |-
+        # In this cell, we're importing packages that we'll use later in the notebook, and defining some shared constants
+        # You do not need to make changes to this cell.
+
+        # Before we can import it, we have to install the pvlib package to the notebook's python kernel
+        # Hex notebooks have some common 3rd party packages already installed (like pandas), but for less common packages we have to install them first.
+        # The line below does this for us:
+        %pip install pvlib --quiet
+
+        # Imports
+        from enum import Enum
+        import math
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import pandas as pd
+        import pvlib
+        import pytz
+        from pathlib import Path
+        from IPython import display
+  - cellType: CODE
+    cellId: a4ab8791-dcb0-4414-873a-51a59a7531f5 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: "2a. Inputs: Location"
+    config:
+      source: |-
+        # Location
+        LATITUDE = 40.62954797526456 
+        LONGITUDE = -74.03597794966923
+         
+        # Altitude: the altitude of your home (well, technically your roof) above sea level
+        ALTITUDE_METERS = 15
+
+        class Orientation(Enum):
+            NORTH = 0
+            EAST = 90
+            SOUTH = 180
+            WEST = 270
+            JESS = 211
+
+        # Roof orientation
+        ORIENTATION = Orientation.JESS.value
+  - cellType: CODE
+    cellId: eb3d0a02-3796-4a19-bf00-59d50f9b9b81 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: "2b. Inputs: PV system"
+    config:
+      source: |
+        # In this cell, we're defining the characterics of our desired PV system
+        # We've picked some reasonble defaults; you can try changing some values if you'd like!
+
+        # A PV system is made up of:
+        #  - an array of one or more PV panels
+        #  - one or more inverters (electrical devices that convert the DC output from the panels to AC energy)
+
+        # We'll model a system with a single panel and a single inverter. We'll scale up that modeled capacity to match our target system capacity.
+
+        # PV System Capacity
+        # The capacity is the maximum energy your system could output in ideal sun conditions
+        # The capacity is limited by the size of your roof area - you get higher capacity by fitting in more PV panels
+        # For a single-family home, a very large system would have a capacity of 15kW (15000 Watts)
+        PV_SYSTEM_CAPACITY_WATTS = 5000
+
+        # The `pvlib` 3rd party library fetches detailed models of a variety of PV panels and inverters, from the NREL SAM (see definition above)
+        # We've arbitrarily selected one of each
+        PV_PANEL_MODEL = pvlib.pvsystem.retrieve_sam("SandiaMod")["Canadian_Solar_CS5P_220M___2009_"]
+        PV_PANEL_CAPACITY_WATTS = 220
+        INVERTER_MODEL = pvlib.pvsystem.retrieve_sam("cecinverter")["ABB__MICRO_0_25_I_OUTD_US_208__208V_"]
+
+        # Our scaling factor - how many panels of {PV_PANEL_CAPACITY_WATTS} we need to reach a total system capacity of {PV_SYSTEM_CAPACITY_WATTS}
+        # (we're letting this be a fractional number)
+        NUMBER_OF_PANELS = PV_SYSTEM_CAPACITY_WATTS / PV_PANEL_CAPACITY_WATTS
+
+        # Azimuth: the compass rose orientation of the panels
+        # We've set this to match roof orientation defined above, but you could pick something else
+        PV_ARRAY_AZIMUTH = ORIENTATION
+
+        # Tilt: how the panels are tilted relative to the earth's surface
+        # Typically, ideal (fixed) tilt angle is equal to your latitude
+        # For example, at the equator (latitude 0 degrees), panels should face straight up (0 degrees) to get the most sun throughout the year
+        PV_ARRAY_TILT = LATITUDE
+
+        # Weather Data Simulation Year
+        # We're going to simulate our solar system's output over a year, using historical weather data for an actual year in the past
+        # 2022 is the most recent year for which we can get historical solar weather data from NREL (but you could choose an earlier year)
+        SIMULATION_YEAR = 2022
+  - cellType: CODE
+    cellId: 471030fa-2c9d-465f-8f2d-dc161a3470d2 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: "3. Fetch data: Solar weather"
+    config:
+      source: |-
+        # In this cell, we're using `pvlib` to fetch historical "solar weather" data for our chosen location over our chosen simulation year
+        # "Solar weather" is how much sun we got at this location
+
+        solar_weather_timeseries, solar_weather_metadata = pvlib.iotools.get_psm3(
+            latitude=LATITUDE,
+            longitude=LONGITUDE,
+            names=SIMULATION_YEAR,
+            api_key=NREL_API_KEY,
+            email=NREL_API_EMAIL,
+            map_variables=True,
+            leap_day=True,
+        )
+        solar_weather_timeseries
+  - cellType: CODE
+    cellId: e50a4420-f1ad-4ba6-a4f7-c79e842816ab # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: "4. Model: simulate PV system output"
+    config:
+      source: |-
+        # In this cell, we're putting it all together!
+        # We're using `pvlib` to simulate how much electricity our PV system would generate given historical "solar weather" data
+
+        def simulate_pv_ouptput(
+            solar_weather_timeseries,
+            latitude,
+            longitude,
+            altitude,
+            pv_array_tilt,
+            pv_array_azimuth,
+            pv_panel_model,
+            inverter_model,
+        ):
+            # Adapted from example: https://pvlib-python.readthedocs.io/en/v0.9.0/introtutorial.html?highlight=total_irradiance#procedural
+
+            # First, we model the position of the sun relative to our chosen location over the simulation year
+            solar_position_timeseries = pvlib.solarposition.get_solarposition(
+                time=solar_weather_timeseries.index,
+                latitude=latitude,
+                longitude=longitude,
+                altitude=altitude,
+                temperature=solar_weather_timeseries["temp_air"],
+            )
+
+            # We combine solar position with historical solar weather data to model total irradiance for our PV panel
+            total_irradiance_timeseries = pvlib.irradiance.get_total_irradiance(
+                pv_array_tilt,
+                pv_array_azimuth,
+                solar_position_timeseries["apparent_zenith"],
+                solar_position_timeseries["azimuth"],
+                solar_weather_timeseries["dni"],
+                solar_weather_timeseries["ghi"],
+                solar_weather_timeseries["dhi"],
+                dni_extra=pvlib.irradiance.get_extra_radiation(solar_weather_timeseries.index),
+                model="haydavies",
+            )
+
+            # We then model air mass & angle of incidence, which we combine with total irradiance to model "effective" irradiance on our PV panel
+            # Air mass is a measure of the path length of solar radiation through the atmosphere
+            absolute_airmass_timeseries = pvlib.atmosphere.get_absolute_airmass(
+                pvlib.atmosphere.get_relative_airmass(
+                    solar_position_timeseries["apparent_zenith"]
+                ),
+                pvlib.atmosphere.alt2pres(ALTITUDE_METERS),
+            )
+
+            # Angle of incidence is the angle of the sun's rays relative to the panel's surface
+            angle_of_incidence_timeseries = pvlib.irradiance.aoi(
+                pv_array_tilt,
+                pv_array_azimuth,
+                solar_position_timeseries["apparent_zenith"],
+                solar_position_timeseries["azimuth"],
+            )
+
+            # This is where we combine the direct and diffuse irradiance, taking into account the air mass that the sunlight has to travel through
+            effective_irradiance_timeseries = pvlib.pvsystem.sapm_effective_irradiance(
+                total_irradiance_timeseries["poa_direct"],
+                total_irradiance_timeseries["poa_diffuse"],
+                absolute_airmass_timeseries,
+                angle_of_incidence_timeseries,
+                pv_panel_model,
+            )
+
+            # We model the temperature within the PV panel ("cell temperature"), which affects the efficiency of the panels
+            cell_temperature_timeseries = pvlib.temperature.sapm_cell(
+                total_irradiance_timeseries["poa_global"],
+                solar_weather_timeseries["temp_air"],
+                solar_weather_timeseries["wind_speed"],
+                **pvlib.temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"]["open_rack_glass_glass"],
+            )
+
+            # Finally we put it all together:
+
+            # We simulate the DC electricity output of our PV panel given the effective solar irradiance and cell temperature)
+            dc_electricity_timeseries = pvlib.pvsystem.sapm(
+                effective_irradiance_timeseries, 
+                cell_temperature_timeseries, 
+                pv_panel_model
+            )
+
+            # And then we simulate the inverter converting the DC output into AC output
+            ac_electricity_timeseries_watts = pvlib.inverter.sandia(
+                dc_electricity_timeseries["v_mp"], 
+                dc_electricity_timeseries["p_mp"], 
+                inverter_model
+            )
+
+            # Wrap the results all up into a dataframe for plotting!
+            pv_model_results = pd.DataFrame(
+                {
+                    "PV Array Output (Wh)": dc_electricity_timeseries["i_mp"] * dc_electricity_timeseries["v_mp"] * NUMBER_OF_PANELS,
+                    "Inverter Output (Wh)": ac_electricity_timeseries_watts * NUMBER_OF_PANELS,
+                    "Solar azimuth (°)": solar_position_timeseries["azimuth"],
+                    "Solar elevation (°)": solar_position_timeseries["apparent_elevation"],
+                }
+            )
+            pv_model_results["timestamp"] = pv_model_results.index.map(
+                lambda utc_time: utc_time.astimezone(pytz.timezone(hex_timezone))
+            )
+            return pv_model_results
+
+        PV_SYSTEM_CHARACTERISTICS = {
+            "latitude": LATITUDE,
+            "longitude": LONGITUDE,
+            "altitude": ALTITUDE_METERS,
+            "pv_array_tilt": PV_ARRAY_TILT,
+            "pv_array_azimuth": PV_ARRAY_AZIMUTH,
+            "pv_panel_model": PV_PANEL_MODEL,
+            "inverter_model": INVERTER_MODEL,
+        }
+
+        pv_model_results = simulate_pv_ouptput(solar_weather_timeseries, **PV_SYSTEM_CHARACTERISTICS)
+        pv_model_results
+  - cellType: CHARTV2
+    cellId: a14596b2-6484-4f79-8b46-2a1b3f742f11 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Weekly PV Generation - entire year
+    config:
+      height: null
+      chartSpec:
+        type: layered
+        layers:
+          - id: 991ba5ba-c661-49d8-b67e-6fb72903b1aa
+            xAxis:
+              type: datetime
+              style:
+                grid:
+                  style: dash
+                ticks: {}
+                labels:
+                  angle: 45
+              timeUnit: yearweek
+              datetimeFormat:
+                format: DATE_ISO8601
+                timezone: LOCAL
+                columnType: DATETIME
+              dataFrameColumn: timestamp
+            series:
+              - id: cc207af3-ea66-46e4-a91f-b49bc644b425
+                type: area
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  aggregate: sum
+                dataFrameColumns:
+                  - Inverter Output (Wh)
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#EECA3B"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                line: true
+                point: false
+                interpolate: monotone
+                normalize: false
+            dataFrame: pv_model_results
+        settings:
+          legend:
+            position: right
+          tooltip: true
+          selectionEnabled: false
+      chartSelection: {}
+      colorMappings: {}
+      resultVariable: filter_result
+      outputResult: true
+      displayType: CHART
+      displayTableConfig:
+        pageSize: 50
+        height: null
+        hideIcons: false
+        hideIndex: false
+        defaultSortColumn: null
+        defaultSortIndexColumn: null
+        defaultSortDirection: ASC
+        conditionalFormatting: null
+        calcs: null
+        filters: []
+        columnProperties: []
+        columnOrdering: null
+        customColumnOrdering: null
+        pinnedColumns: null
+        hiddenColumns: null
+        pinIndexColumns: false
+        showAggregations: false
+        columnAggregations: null
+  - cellType: CHARTV2
+    cellId: 6a6c2157-8092-450f-a257-5fdce21778ce # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: 1 week of modeled solar output
+    config:
+      height: null
+      chartSpec:
+        type: layered
+        layers:
+          - id: 0ebb5ced-1640-4512-ae02-af9456c852ef
+            xAxis:
+              type: datetime
+              style:
+                grid:
+                  style: solid
+                ticks: {}
+                labels: {}
+              timeUnit: yearmonthdatehours
+              dataFrameColumn: timestamp
+            series:
+              - id: ec15c2fe-8fb1-432b-a0cf-59aff517b9a0
+                type: area
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Inverter output (W AC)
+                  aggregate: sum
+                dataFrameColumns:
+                  - Inverter Output (Wh)
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#EECA3B"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                line: true
+                point: false
+                interpolate: monotone
+                normalize: false
+              - id: bf6fb0bd-f50b-4753-9b58-5ec0e619bbd1
+                type: line
+                axis:
+                  type: number
+                  style:
+                    ticks: {}
+                    labels: {}
+                dataFrameColumns:
+                  - Solar elevation (°)
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#4C78A8"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: solid
+            dataFrame: pv_model_results
+            seriesGroups:
+              - - ec15c2fe-8fb1-432b-a0cf-59aff517b9a0
+              - - bf6fb0bd-f50b-4753-9b58-5ec0e619bbd1
+        settings:
+          legend:
+            position: right
+          tooltip: true
+          selectionEnabled: false
+      chartSelection: {}
+      colorMappings: {}
+      resultVariable: filter_result_2
+      outputResult: true
+      displayType: CHART
+      displayTableConfig:
+        pageSize: 50
+        height: null
+        hideIcons: false
+        hideIndex: false
+        defaultSortColumn: null
+        defaultSortIndexColumn: null
+        defaultSortDirection: ASC
+        conditionalFormatting: null
+        calcs: null
+        filters:
+          - column: timestamp
+            predicate:
+              op: DATE_BETWEEN
+              arg:
+                - 2022-07-01
+                - 2022-07-07
+            columnType: DATETIME
+        columnProperties: []
+        columnOrdering: null
+        customColumnOrdering: null
+        pinnedColumns: null
+        hiddenColumns: null
+        pinIndexColumns: false
+        showAggregations: false
+        columnAggregations: null
+  - cellType: CODE
+    cellId: 47831012-ec60-4ae9-8971-b4a41825c00f # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Total output
+    config:
+      source: |-
+        average_usage_kwh = 10791 # Average yearly electricity usage for a US residential home, in 2022 (https://www.eia.gov/tools/faqs/faq.php)
+        total_output_kWh = pv_model_results['Inverter Output (Wh)'].sum() / 1000
+
+        print(f"In {SIMULATION_YEAR}, our system would have produced:")
+        print(f"{total_output_kWh:,.0f} kWh ({total_output_kWh/average_usage_kwh*100:.0f}% of average US residential usage)")
+  - cellType: TEXT
+    cellId: 08159fde-d14f-4f89-9f9e-0c6f75c08e18 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: null
+    config:
+      richText:
+        - type: h3
+          children:
+            - text: "Coding Level 0-1: Done!"
+        - type: paragraph
+          children:
+            - text: "If you're at coding level 0 or 1: Congrats, you made it through the code!"
+              italic: true
+        - type: paragraph
+          children:
+            - text: ""
+        - type: paragraph
+          children:
+            - text: "Now, go back and try tweaking some input variables to play around with the data and look for interesting findings. Ideas:"
+        - type: ul
+          children:
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: How does output of the same PV system compare between two different locations?
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: What is the impact of orienting the array South-facing vs North-facing?
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: How significant is the effect of home altitude on the output?
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: Look up your yearly electricity usage. What capacity system would you need to cover your consumption (assuming net metering, where you just have to put as much energy in over the course of the year as you take out)
+        - type: paragraph
+          children:
+            - text: ""
+        - type: paragraph
+          children:
+            - text: "In your Assignment submission on the Terra.do app:"
+        - type: ol
+          children:
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: Link to your copy of this notebook
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: Write up a few sentences summarizing your interesting finding
+  - cellType: TEXT
+    cellId: 251b08cf-1145-4d94-a767-ae9af57b1760 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: null
+    config:
+      richText:
+        - type: h3
+          children:
+            - text: Coding Level 2-3 - Carry on!
+        - type: paragraph
+          children:
+            - text: "If you have strong programming experience, use this as a starting point and modify or expand this notebook. "
+              italic: true
+        - type: paragraph
+          children:
+            - text: ""
+        - type: paragraph
+          children:
+            - text: "Some ideas:"
+        - type: ul
+          children:
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: Fetch TMY data (Typical Meterological Year, averaged across several years) instead of a data from a specific year
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: Iterate over one or more attributes (programmatically, with charts to compare the outputs)
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: Update the simulation to combine multiple panels with a single inverter. Does this have a significant effect?
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: Combine this notebook with the home energy usage notebook to model what capacity PV system you would need to operate off-grid, i.e. meet your energy usage for each hour of the year, not just in total (accounting for high usage but low generation in winter)
+        - type: p
+          children:
+            - text: ""
+        - type: paragraph
+          children:
+            - text: "In your Assignment submission on the Terra.do app:"
+        - type: ol
+          children:
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: Link to your copy of this notebook
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: Write up a few sentences summarizing your interesting finding
+  - cellType: TEXT
+    cellId: 5201d383-cbd6-4df4-8623-06169f10af85 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: null
+    config:
+      richText:
+        - type: h3
+          children:
+            - text: Findings
+        - type: ul
+          children:
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: There is a meaningful difference in kWh output of model systems, depending on the tilt of the PV array system. A system with a tilt closer to my location’s latitude provides more output during the winter months, but a system with a lesser degree tilt outputs more kWh during the summer (peak usage) months.
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: My Actual household kWh usage fluctuates dramatically, day-by-day. Original and Alternate Model PV systems would not meet Actual usage for Nov-Mar and July-Sep.
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: The most dramatic difference between Actual Usage and Output kWh is on maximum usage days. On a daily average, the difference in usage and output is not that significant.
+            - type: li
+              children:
+                - type: lic
+                  children:
+                    - text: |
+                        In a sample 3-week period in September, the PV system meets only 25% of Actual usage on one day and then kWh output is more than double Actual usage on a few other days.
+  - cellType: CODE
+    cellId: 011f4959-bce6-4662-973f-5c882cb1503c # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Simplify Results of the Model Output (kWh)
+    config:
+      source: |
+        # Simplify any output results
+        def simplify_model_results(model):
+            model['date'] = pd.to_datetime(model['timestamp'])
+            model['date'] = model['timestamp'].dt.date
+            model_simplifed = model.groupby('date')['Inverter Output (Wh)'].sum().reset_index()
+            model_simplifed['Inverter Output (kWh)'] = model_simplifed['Inverter Output (Wh)'] / 1000
+            model_simplifed = model_simplifed.drop(model_simplifed.index[0])
+            model_simplifed['date'] = pd.to_datetime(model_simplifed['date'])
+
+            return model_simplifed
+
+        # Provided Model Output - Simplified Results 
+        pv_model_results_simplifed = simplify_model_results(pv_model_results)
+        pv_model_results_simplifed
+  - cellType: CHARTV2
+    cellId: ea0a4a3f-fc2e-4692-b86a-98cac99031d3 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Original Model Output over Year kWh
+    config:
+      height: null
+      chartSpec:
+        type: layered
+        layers:
+          - id: 458d89b2-d639-4947-882d-84a5d9a4768a
+            xAxis:
+              type: datetime
+              style:
+                grid:
+                  style: solid
+                ticks: {}
+                labels: {}
+              dataFrameColumn: date
+            series:
+              - id: d161688f-7bae-4457-ad4c-8499b0a8eda5
+                type: bar
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  aggregate: sum
+                dataFrameColumns:
+                  - Inverter Output (kWh)
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#EECA3B"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                barWidth: 1
+                orientation: vertical
+                layout: stacked
+            dataFrame: pv_model_results_simplifed
+        settings:
+          legend:
+            position: right
+          tooltip: true
+          selectionEnabled: false
+      chartSelection: {}
+      colorMappings: {}
+      resultVariable: chart_result_2
+      outputResult: false
+      displayType: CHART
+      displayTableConfig: null
+  - cellType: TEXT
+    cellId: 02f39710-c137-4569-a45a-04b156589b7c # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: null
+    config:
+      richText:
+        - type: paragraph
+          children:
+            - text: "Input the tilt of PV arrays to prepare an Alternate Model :"
+  - cellType: INPUT
+    cellId: d9a8d38b-4bae-4ec7-8cd9-86346f0ab5fd # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: PV_ARRAY_TILT_ALT
+    config:
+      inputType: NUMERIC_INPUT
+      name: PV_ARRAY_TILT_ALT
+      outputType: NUMBER
+      options: null
+      defaultValue: 25
+  - cellType: CODE
+    cellId: 500953b4-b6fe-499f-8cfc-cad26bcb204e # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Alternate Model Output
+    config:
+      source: |-
+        # Alternative Model Characteristics - TODO 
+
+        PV_SYSTEM_ALT_CHARACTERISTICS = {
+            "latitude": LATITUDE,
+            "longitude": LONGITUDE,
+            "altitude": ALTITUDE_METERS,
+            "pv_array_tilt": PV_ARRAY_TILT_ALT, #Only change
+            "pv_array_azimuth": PV_ARRAY_AZIMUTH,
+            "pv_panel_model": PV_PANEL_MODEL,
+            "inverter_model": INVERTER_MODEL,
+        }
+
+        pv_model_alt_results = simulate_pv_ouptput(solar_weather_timeseries, **PV_SYSTEM_ALT_CHARACTERISTICS)
+        pv_model_alt_results
+  - cellType: CODE
+    cellId: 2be55031-ccf2-4268-ace5-147ef44a9b35 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Simplified Results of Alternative Model
+    config:
+      source: |
+        pv_model_alt_results_simplifed = simplify_model_results(pv_model_alt_results)
+        pv_model_alt_results_simplifed = pv_model_alt_results_simplifed.rename(columns={'Inverter Output (kWh)': 'Alternate Model Output (kWh)'})
+
+        pv_model_alt_results_simplifed
+  - cellType: CODE
+    cellId: a9318fe8-bcf5-42ed-901a-3dec7b5eab76 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Simplified Results for both Original and Alternative Model
+    config:
+      source: |-
+        # Merge Original and Alternate Models
+
+        df_output_original_and_alt = pd.merge(pv_model_results_simplifed[['date','Inverter Output (kWh)']], pv_model_alt_results_simplifed[['date','Alternate Model Output (kWh)']], on='date')
+        df_output_original_and_alt = df_output_original_and_alt.rename(columns={'Inverter Output (kWh)': 'Original Model Output (kWh)'})
+        df_output_original_and_alt
+  - cellType: CODE
+    cellId: 841254f6-6b3c-4e96-b78a-3b4b391ce53d # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Reshape Simplified Results for both Original and Alternative Models
+    config:
+      source: |-
+        df_output_original_alt_reshape = pd.melt(df_output_original_and_alt, id_vars=['date'], value_vars=['Original Model Output (kWh)', 'Alternate Model Output (kWh)'], var_name='Type', value_name='(kWh)')
+        df_output_original_alt_reshape
+  - cellType: CHARTV2
+    cellId: 12cac531-9878-4e38-bdbc-955c34ee2d80 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Visualization of kWh Output for Original and Alternative Models
+    config:
+      height: null
+      chartSpec:
+        type: layered
+        layers:
+          - id: 9671ec09-6875-4287-8292-774d855f6d27
+            xAxis:
+              type: datetime
+              style:
+                grid:
+                  style: solid
+                ticks: {}
+                labels: {}
+              title: " "
+              dataFrameColumn: date
+            series:
+              - id: a389f5b7-8c77-4d5a-b0d4-8f708744c03d
+                type: bar
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: kWh
+                  aggregate: sum
+                dataFrameColumns:
+                  - (kWh)
+                colorDataFrameColumn: Type
+                colorOrder: ascending
+                color:
+                  type: series
+                  colorsBySeriesValues: {}
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                legendTitle: " "
+                barWidth: 1
+                orientation: vertical
+                layout: grouped
+            dataFrame: df_output_original_alt_reshape
+        settings:
+          legend:
+            position: right
+          tooltip: true
+          selectionEnabled: false
+      chartSelection: {}
+      colorMappings:
+        Alternate Output (kWh): "#4C78A8"
+        Original Model Output (kWh): "#F58518"
+        Alternate Model Output (kWh): "#4C78A8"
+      resultVariable: chart_result_4
+      outputResult: false
+      displayType: CHART
+      displayTableConfig: null
+  - cellType: CODE
+    cellId: 05b23df6-7a02-4968-8994-5f9347ab3623 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Actual Household Usage (kWh)
+    config:
+      source: |-
+        # Import and simplify Actual household kWH usage
+
+        ACTUAL_YEAR = 2022
+        csv_actual = 'coned_usage_2022.csv'
+        df_actual = pd.read_csv(csv_actual)
+        df_actual_select = df_actual[["DATE", "USAGE (kWh)"]]
+        df_actual_simplified = df_actual_select.groupby('DATE')['USAGE (kWh)'].sum().reset_index()
+        df_actual_simplified = df_actual_simplified.rename(columns={'DATE': 'date', 'USAGE (kWh)': 'Usage (kWh)'})
+        df_actual_simplified['date'] = pd.to_datetime(df_actual_simplified['date'])
+
+        df_actual_simplified
+  - cellType: CHARTV2
+    cellId: 357f3357-3abf-432a-96fe-b2f46ed5bcac # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Visualization of Actual Household Usage (kWh)
+    config:
+      height: null
+      chartSpec:
+        type: layered
+        layers:
+          - id: ea5571db-b167-46e7-96b2-39d9d0d5e342
+            xAxis:
+              type: datetime
+              style:
+                grid:
+                  style: solid
+                ticks: {}
+                labels: {}
+              dataFrameColumn: date
+            series:
+              - id: e7565db7-620f-41eb-8cc7-8f6752c050db
+                type: area
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  aggregate: sum
+                dataFrameColumns:
+                  - Usage (kWh)
+                colorOrder: ascending
+                color:
+                  type: static
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                line: true
+                point: false
+                normalize: false
+            dataFrame: df_actual_simplified
+        settings:
+          legend:
+            position: right
+          tooltip: true
+          selectionEnabled: false
+      chartSelection: {}
+      colorMappings: {}
+      resultVariable: chart_result
+      outputResult: false
+      displayType: CHART
+      displayTableConfig: null
+  - cellType: CODE
+    cellId: d52ce319-441c-4e83-99d5-705ccc505f21 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Compare Actual Usage with Output from Original Model and Alternative Model, with Percentage Usage Met
+    config:
+      source: |-
+        df_output_and_actual = pd.merge(df_actual_simplified[['date','Usage (kWh)']], df_output_original_and_alt[['date','Original Model Output (kWh)', 'Alternate Model Output (kWh)']], on='date')
+        df_output_and_actual = df_output_and_actual.rename(columns={'Usage (kWh)': 'Actual Usage'})
+        # df_output_and_actual
+
+        df_output_and_actual['% Original Model Meets Actual Usage'] = (df_output_and_actual['Original Model Output (kWh)'] / df_output_and_actual['Actual Usage']) * 100
+        df_output_and_actual['% Alternate Model Meets Actual Usage'] = (df_output_and_actual['Alternate Model Output (kWh)'] / df_output_and_actual['Actual Usage']) * 100
+        df_output_and_actual
+  - cellType: CODE
+    cellId: 9068d23f-582a-44fb-9f68-c792ff121d95 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Reshape Actual Usage with Output from Original Model and Alternative Model
+    config:
+      source: |+
+        df_output_and_actual_kWh_reshape = pd.melt(df_output_and_actual, id_vars=['date'], value_vars=['Actual Usage', 'Original Model Output (kWh)', 'Alternate Model Output (kWh)'], var_name='Type', value_name='kWh')
+        df_output_and_actual_kWh_reshape
+
+
+  - cellType: CHARTV2
+    cellId: cde18a55-2cd9-47d1-b80f-bf1a1f9f93ae # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Visualize Actual Usage with Output from Original Model and Output from Alternative Model
+    config:
+      height: null
+      chartSpec:
+        type: layered
+        layers:
+          - id: 2e14e69b-f0fd-4ebd-a5d3-cb5c56f879f4
+            xAxis:
+              type: datetime
+              style:
+                grid:
+                  style: solid
+                ticks: {}
+                labels: {}
+              dataFrameColumn: date
+            series:
+              - id: 83f6fc18-e6dc-4a1d-979d-8c952fd05a88
+                type: bar
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                dataFrameColumns:
+                  - kWh
+                colorDataFrameColumn: Type
+                colorOrder: ascending
+                color:
+                  type: series
+                  colorsBySeriesValues: {}
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                barWidth: 1
+                orientation: vertical
+                layout: grouped
+            dataFrame: df_output_and_actual_kWh_reshape
+        settings:
+          legend:
+            position: right
+          tooltip: true
+          selectionEnabled: false
+      chartSelection: {}
+      colorMappings:
+        Actual Usage: "#4C78A8"
+        Original Model Output (kWh): "#E45756"
+        Alternate Model Output (kWh): "#F58518"
+      resultVariable: chart_result_7
+      outputResult: false
+      displayType: CHART
+      displayTableConfig: null
+  - cellType: CODE
+    cellId: 2ade3dfa-8f6d-4ebf-9343-247d2853db35 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Summarize Statistics of kWh
+    config:
+      source: |
+        # Ingest daily kWh to create summary comparison table
+        def summarize_kWh(inputs, display_type):
+            total_kWh = inputs.sum().round(2)
+            average_month_kWh = (total_kWh / 12).round(2)
+            average_day_kWh = inputs.mean().round(2)
+            min_day_kWh = round(inputs.min(), 2)
+            max_day_kWh = round(inputs.max(), 2)
+            percentile_25 = inputs.quantile(0.25).round(2)
+            percentile_75 = inputs.quantile(0.75).round(2)
+
+            return [
+                    {
+                    'Type of kWh': display_type,
+                    'Total/Year': total_kWh,
+                    'Average/Month': average_month_kWh,
+                    'Average/Day': average_day_kWh,
+                    'Min kWh': min_day_kWh,
+                    'Max kWh': max_day_kWh,
+                    '25th %': percentile_25,
+                    '75th %': percentile_75
+                }
+            ]
+  - cellType: CODE
+    cellId: e90ea67d-8009-4ebb-93c6-857d1aa8a647 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Summary Statistics Comparing Actual Usage, Model Output, Alternate Model Output in kWh
+    config:
+      source: |-
+        actual_summary = summarize_kWh(df_actual_simplified["Usage (kWh)"], 'Actual Usage (kWh)')
+        output_summary = summarize_kWh(pv_model_results_simplifed['Inverter Output (kWh)'], 'Original Model Output (kWh)')
+        alt_output_summary = summarize_kWh(pv_model_alt_results_simplifed['Alternate Model Output (kWh)'], 'Alternate Model Output (kWh)')
+        kWh_summaries = []
+        kWh_summaries.extend(actual_summary)
+        kWh_summaries.extend(output_summary)
+        kWh_summaries.extend(alt_output_summary)
+        kWh_summaries_df = pd.DataFrame(kWh_summaries)
+        kWh_summaries_df
+  - cellType: CODE
+    cellId: b5487251-3cc5-4fea-bca4-113d3e447cfc # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Reshape Summary Statistics Comparing Actual Usage, Model Output, Alternate Model Output 
+    config:
+      source: |-
+        kWh_summaries_df_reshape = pd.melt(kWh_summaries_df, id_vars=['Type of kWh'], value_vars=['Average/Day', \
+         'Min kWh', 'Max kWh', '25th %', '75th %'], var_name='Statistic', value_name='kWh')
+        kWh_summaries_df_reshape
+  - cellType: CHARTV2
+    cellId: 707bcb79-08f9-474c-8149-b10320b88fad # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Visualization of Summary Statistics - kWh Per Day
+    config:
+      height: null
+      chartSpec:
+        type: layered
+        layers:
+          - id: 4701422b-7d9c-4c2b-b858-5201ac59d74f
+            xAxis:
+              sort: descending
+              type: string
+              style:
+                grid:
+                  style: solid
+                ticks: {}
+                labels:
+                  angle: 30
+              title: " "
+              dataFrameColumn: Statistic
+            series:
+              - id: 8b4a5c11-2885-433c-867d-4d98fc8deb59
+                type: bar
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: kWh
+                  aggregate: sum
+                dataFrameColumns:
+                  - kWh
+                colorDataFrameColumn: Type of kWh
+                colorOrder: ascending
+                color:
+                  type: series
+                  colorsBySeriesValues:
+                    Actual Usage (kWh): "#4C78A8"
+                    Original Model Output (kWh): "#E45756"
+                    Alternate Model Output (kWh): "#F58518"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                barWidth: 1
+                orientation: vertical
+                layout: grouped
+            dataFrame: kWh_summaries_df_reshape
+        settings:
+          legend:
+            position: right
+          tooltip: true
+          selectionEnabled: false
+      chartSelection: {}
+      colorMappings:
+        25th %: "#4C78A8"
+        75th %: "#F58518"
+        Max kWh: "#54A24B"
+        Min kWh: "#EECA3B"
+        Total/Year: "#B279A2"
+        Average/Day: "#E45756"
+        Average/Month: "#72B7B2"
+        Actual Usage (kWh): "#4C78A8"
+        Original Model Output (kWh): "#E45756"
+        Alternate Model Output (kWh): "#F58518"
+      resultVariable: chart_result_8
+      outputResult: false
+      displayType: CHART
+      displayTableConfig: null
+  - cellType: TEXT
+    cellId: b08ec960-ff06-4f73-ae77-4bd4007811e1 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: null
+    config:
+      richText:
+        - type: paragraph
+          children:
+            - text: "TODO - put percentile across X axis, instead say 95% usage in a day is: "
+        - type: paragraph
+          children:
+            - text: Leave Y axis as kWh
+        - type: paragraph
+          children:
+            - text: ""
+        - type: paragraph
+          children:
+            - text: Add in initial goals, strategy, findings
+        - type: paragraph
+          children:
+            - text: Repeat summary at bottom, more detailed
+        - type: paragraph
+          children:
+            - text: ""
+  - cellType: CODE
+    cellId: 3b104524-1fb6-4ee6-a8c7-25ad7bb274c0 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Reshape Percentage Usage with Output from Original Model and Alternative Model
+    config:
+      source: |+
+        df_output_and_actual_reshape = pd.melt(df_output_and_actual, id_vars=['date'], value_vars=['% Original Model Meets Actual Usage', '% Alternate Model Meets Actual Usage'], var_name='Type', value_name='Percent')
+        df_output_and_actual_reshape['Actual Usage'] = 100
+        df_output_and_actual_reshape
+
+
+  - cellType: CHARTV2
+    cellId: 962f004d-5d34-4448-bef3-ec685a08d63e # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Visualize Percentage Difference of Models Output Compared to Actual Usage  over a Sample Period
+    config:
+      height: null
+      chartSpec:
+        type: layered
+        facet: {}
+        layers:
+          - id: 55098fb2-2241-459f-b669-9efff55dffa7
+            xAxis:
+              type: datetime
+              style:
+                grid:
+                  style: solid
+                ticks: {}
+                labels: {}
+              title: " "
+              timeUnit: yearmonthdate
+              dataFrameColumn: date
+            series:
+              - id: 58e5ea4f-bd77-41dd-ba05-2ceb65e665a3
+                type: bar
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    zero: true
+                    ticks: {}
+                    labels: {}
+                dataFrameColumns:
+                  - Percent
+                colorDataFrameColumn: Type
+                colorOrder: ascending
+                color:
+                  type: series
+                  dataType: number
+                  dataFrameColumn: Type
+                  colorsBySeriesValues: {}
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                legendTitle: "  "
+                barWidth: 1
+                orientation: vertical
+                layout: grouped
+              - id: 8f7f21c1-8d03-410e-93ea-411b2d8df2e3
+                type: line
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    zero: true
+                    ticks: {}
+                    labels: {}
+                dataFrameColumns:
+                  - Actual Usage
+                colorOrder: ascending
+                color:
+                  type: static
+                  color: "#4C78A8"
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                point: false
+                stroke: solid
+                width: 2
+            dataFrame: df_output_and_actual_reshape
+            seriesGroups:
+              - - 58e5ea4f-bd77-41dd-ba05-2ceb65e665a3
+                - 8f7f21c1-8d03-410e-93ea-411b2d8df2e3
+        settings:
+          legend:
+            position: top-left
+          tooltip: true
+          selectionEnabled: false
+      chartSelection: {}
+      colorMappings:
+        "% Actual Usage": "#4C78A8"
+        "% Original Model Meets Actual Usage": "#E45756"
+        "% Alternate Model Meets Actual Usage": "#F58518"
+      resultVariable: chart_result_6
+      outputResult: true
+      displayType: CHART
+      displayTableConfig:
+        pageSize: 50
+        height: null
+        hideIcons: false
+        hideIndex: false
+        defaultSortColumn: null
+        defaultSortIndexColumn: null
+        defaultSortDirection: ASC
+        conditionalFormatting: null
+        calcs: null
+        filters:
+          - column: date
+            predicate:
+              op: DATE_AFTER
+              arg: 2022-09-07
+            columnType: DATETIME
+          - column: date
+            predicate:
+              op: DATE_BEFORE
+              arg: 2022-09-30
+            columnType: DATETIME
+        columnProperties: []
+        columnOrdering: null
+        customColumnOrdering: null
+        pinnedColumns: null
+        hiddenColumns: null
+        pinIndexColumns: false
+        showAggregations: false
+        columnAggregations: null
+  - cellType: CODE
+    cellId: 21f35734-00ab-4dc4-8248-7ff537faa16b # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Ideas 
+    config:
+      source: |
+        # #IDEAS - TODO
+        # how much would be lost due to evening usage 
+        # Examinatino of min/max
+        # min_day_kWh = round(inputs.min(), 2)
+        # # min_index = inputs.idxmin()
+        # # min_date = pv_model_results_simplifed.loc[min_index, 'date']
+        # max_day_kWh = round(inputs.max(), 2)
+        # # max_index = inputs.idxmax()
+        # # max_date = pv_model_results_simplifed.loc[max_index, 'date']
+appLayout:
+  visibleMetadataFields:
+    - NAME
+    - DESCRIPTION
+    - AUTHOR
+    - LAST_EDITED
+    - LAST_RUN
+    - CATEGORIES
+    - STATUS
+    - TABLE_OF_CONTENTS
+  fullWidth: false
+  tabs:
+    - name: Tab 1
+      rows:
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 08159fde-d14f-4f89-9f9e-0c6f75c08e18
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+sharedFilters: []
