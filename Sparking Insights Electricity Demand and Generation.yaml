@@ -1,14 +1,16 @@
 schemaVersion: 3
 meta:
-  sourceVersionId: 678ae92e-ce64-423c-a1d3-da497cf761eb # DO NOT CHANGE - Hex uses this to match up project versions when reimporting the file
-  description: The project pulls data from the EIA (US Energy Information Agency) API and generates charts of electricity generation and demand over a user-specified time period, in a given region, split by fuel types.
+  sourceVersionId: b9bbd881-c2bc-4c90-a58e-8e8ac59313ee # DO NOT CHANGE - Hex uses this to match up project versions when reimporting the file
+  description: The project analyzes electricity generation, demand, and interchange data from the EIA API for a selected Balancing Authority to determine the grid mix and the extent to which renewable energy sources meet local demand. It includes data fetching, processing, and visualization to provide insights into energy usage patterns and the contribution of different fuel types.
   projectId: ede39a0b-fd2b-4797-9189-cd550c1c5dd1 # DO NOT CHANGE - Unique ID of the project from which this file was generated
-  title: Electricity Demand and Generation
+  title: "Sparking Insights: Electricity Demand and Generation"
   timezone: America/Los_Angeles
   appTheme: SYS_PREF
   codeLanguage: PYTHON
-  status: null
-  categories: []
+  status:
+    name: In development
+  categories:
+    - name: Dashboard
   castDecimalsDefault: true
   logicQueryCacheTimeout: null
   publishedQueryCacheTimeout: null
@@ -29,63 +31,6 @@ sharedAssets:
     - dataConnectionId: e8480949-7368-449c-b922-66d0c52bbad0 # Supabase (postgres)
   externalFileIntegrations: []
 cells:
-  - cellType: TEXT
-    cellId: 46dcf741-4a4e-4b91-acb7-cbe1ec91694d # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: null
-    config:
-      richText:
-        - type: paragraph
-          children:
-            - text: "Find the API documentation here: "
-        - type: ul
-          children:
-            - type: li
-              children:
-                - type: lic
-                  children:
-                    - text: ""
-                    - url: "https://www.eia.gov/opendata/browser/electricity/rto/daily-region-data "
-                      type: a
-                      children:
-                        - text: "https://www.eia.gov/opendata/browser/electricity/rto/daily-region-data "
-                    - text: ""
-            - type: li
-              children:
-                - type: lic
-                  children:
-                    - text: ""
-                    - url: https://www.eia.gov/electricity/gridmonitor/dashboard/electric_overview/US48/US48
-                      type: a
-                      children:
-                        - text: https://www.eia.gov/electricity/gridmonitor/dashboard/electric_overview/US48/US48
-                    - text: ""
-  - cellType: TEXT
-    cellId: bea360c9-60a0-4e53-9fb4-57639684cc6a # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: null
-    config:
-      richText:
-        - type: h3
-          children:
-            - text: Terminology
-        - type: p
-          children:
-            - text: "We'll reference these terms later in the notebook, so it's important to understand them now:"
-        - type: ul
-          children:
-            - type: li
-              children:
-                - type: lic
-                  children:
-                    - bold: true
-                      text: "Balancing authority (BA): "
-                    - text: the organization in charge of ensuring electricity generation meets electricity demand in a given region. A BA performs it's own local electricity generation, and then either net imports or net exports energy to other connected BAs, depending on whether local electricity demand is larger or smaller than local electricity generation
-            - type: li
-              children:
-                - type: lic
-                  children:
-                    - bold: true
-                      text: "Grid mix:"
-                    - text: " electricity generation breakdown by fuel type (e.g., coal, natural gas, solar, hydro, etc.)"
   - cellType: CODE
     cellId: b67999c4-053b-42d1-a665-c75331a02748 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Impor Packages
@@ -102,7 +47,7 @@ cells:
     config:
       source: |-
         # EIA API - https://www.eia.gov/opendata/
-        EIA_API_KEY = "Z1SiTSzQ2gYPesLe83qRYJEFW7PbMu7A7pVtibka"
+        EIA_API_KEY = "" # TODO
         assert EIA_API_KEY != "", "You must set an EIA API key before continuing."
   - cellType: CODE
     cellId: d07c3045-4bca-47ea-8f76-2183a676d993 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
@@ -318,15 +263,18 @@ cells:
             )
   - cellType: MARKDOWN
     cellId: adc2b436-7779-479e-8f79-ad3f3543af31 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Markdown 6
+    cellLabel: BA Overview
     config:
       source: |-
-        Select your local Balancing Authority. 
+        A Balancing Authority (BA) is the organization responsible for ensuring electricity generation meets electricity demand in a given region. BAs generate their electricity for local use and typically import or export energy to other connected BAs, as needed.
 
-        For more deatails on balancing authority, refer to EIA API docs: https://www.eia.gov/electricity/gridmonitor/dashboard/electric_overview/US48/US48
+        Select your local Balancing Authority to update the data and charts in this notebook. 
+
+        If you do not know your local BA, refer to: 
+        https://www.eia.gov/electricity/gridmonitor/dashboard/electric_overview/US48/US48
   - cellType: INPUT
     cellId: 402d2c5d-3a83-4b30-b9df-c335603ac524 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Select the Local BA
+    cellLabel: Select Your Local BA
     config:
       inputType: DROPDOWN
       name: selected_local_BA
@@ -401,10 +349,10 @@ cells:
           - WALC - Western Area Power Administration Desert Southwest Region
           - WACM - Western Area Power Administration Rocky Mountain Region
           - WAUW - Western Area Power Administration Upper Great Plains West
-      defaultValue: NYIS - New York Independent System Operator
+      defaultValue: ISNE - ISO New England
   - cellType: CODE
     cellId: a825e967-77fe-420f-89ba-edcc460e4999 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: "Fetch data: local generation grid mix"
+    cellLabel: Fetch Energy Usage and Grid Mix from Selected BA
     config:
       source: |-
         
@@ -418,7 +366,6 @@ cells:
         # Request and fetch electricity generation data from the EIA API 
         local_generation_grid_mix = get_eia_grid_mix_timeseries(
             [local_BA['code']]
-            # [local_BA['code']],
             # start_date="2022-01-01",
             # end_date="2023-01-01"
         )
@@ -426,12 +373,15 @@ cells:
         local_generation_grid_mix
   - cellType: MARKDOWN
     cellId: 09bf6c45-8448-4285-9f75-1490a4b21d62 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Electricity Generation
+    cellLabel: Subhead
     config:
-      source: "# What is the grid mix for my local electricity?"
+      source: |-
+        ## What Fuels Are Powering a Balancing Authority’s Grid Mix? 
+
+        Electric Insight: "grid mix" is the electricity generation breakdown by fuel type (e.g., coal, natural gas, solar, hydro, etc.)
   - cellType: CHARTV2
     cellId: 365165b9-115d-4085-89c9-8991007569d4 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Local Electricity Generation and Grid Mix for Selected BA
+    cellLabel: Grid Mix for Selected BA
     config:
       height: 424
       chartSpec:
@@ -445,6 +395,7 @@ cells:
                   style: solid
                 ticks: {}
                 labels: {}
+              title: " "
               timeUnit: yearmonthdatehours
               dataFrameColumn: timestamp
             series:
@@ -470,6 +421,7 @@ cells:
                   value: 1
                 tooltip:
                   type: auto
+                legendTitle: " "
                 line: true
                 point: false
                 normalize: false
@@ -506,127 +458,31 @@ cells:
       outputResult: false
       displayType: CHART
       displayTableConfig: null
-  - cellType: TEXT
-    cellId: 63554235-feb9-428f-be5e-91217b13700d # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: null
-    config:
-      richText:
-        - type: paragraph
-          children:
-            - text: "For many balancing authorities, much of the electricity needed to meet demand is actually imported from other balancing authorities. "
-        - type: paragraph
-          children:
-            - text: In this next section, we are going to combine datasets of demand (local) and generation (local and imported) to get a true representation of the "grid mix" (breakdown by fuel type) of local energy consumed
-  - cellType: TEXT
-    cellId: ba0c3f00-2f31-4172-b59e-f793504a7f62 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: null
-    config:
-      richText:
-        - type: h3
-          children:
-            - text: "Terminology: Demand, Net generation, and Total interchange"
-        - type: paragraph
-          children:
-            - text: |
-                First, more terminology (https://www.eia.gov/electricity/gridmonitor/about)
-        - type: ul
-          children:
-            - type: li
-              children:
-                - type: lic
-                  children:
-                    - bold: true
-                      text: "Demand (D):"
-                    - text: " energy consumed locally"
-            - type: li
-              children:
-                - type: lic
-                  children:
-                    - bold: true
-                      text: "Net generation (NG):"
-                    - text: " energy generated locally"
-            - type: li
-              children:
-                - type: lic
-                  children:
-                    - bold: true
-                      text: "Total interchange (TI):"
-                    - text: " net energy exported (positive means net outflow, negative means net inflow)"
-        - type: p
-          children:
-            - text: ""
-        - type: p
-          children:
-            - text: "The balancing authority is responsible for balancing this equation:"
-        - type: codeblock
-          children:
-            - bold: true
-              text: Total interchange = Net generation - Demand
-        - type: p
-          children:
-            - text: i.e. if local generation is larger than local demand, the BA is exporting electricity (positive total interchange). If local demand is larger than local generation, the BA is importing electricity (negative total interchange)
-  - cellType: TEXT
-    cellId: d76072fc-b05d-43c5-9933-38cc4692acc3 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: null
-    config:
-      richText:
-        - type: h3
-          children:
-            - text: The Plan
-        - type: paragraph
-          children:
-            - text: "There are two paths to consider:"
-        - type: ol
-          children:
-            - type: li
-              children:
-                - type: lic
-                  children:
-                    - bold: true
-                      text: Local BA is a net exporter of energy
-                    - text: |-
-                        
-                        In this case, all electricity consumed locally comes from electricity generated locally, so the grid mix simply matches the local generation. This turns out to be a trivial sub-case of path #2
-            - type: li
-              children:
-                - type: lic
-                  children:
-                    - bold: true
-                      text: Local BA is a net importer of energy
-                    - text: |-
-                        
-                        When the local BA is net importing energy, that energy might come from multiple other BAs, each of which has their own grid mix. Therefore, the grid mix of consumed electricity is a combination of local generation grid mix and imported generation grid mix
-        - type: paragraph
-          children:
-            - text: ""
-        - type: paragraph
-          children:
-            - text: "To get a true representation of the grid mix of local energy, we need to combine these pieces of data:"
-        - type: ul
-          children:
-            - type: li
-              children:
-                - type: lic
-                  children:
-                    - text: Demand, Net generation, and Total interchange for our LOCAL_BALANCING_AUTHORITY
-            - type: li
-              children:
-                - type: lic
-                  children:
-                    - text: Interchange (quantity of imported energy) with each connected balancing authority
-            - type: li
-              children:
-                - type: lic
-                  children:
-                    - text: Grid mix of imported energy from each connected balancing authority
   - cellType: CODE
     cellId: b2570797-eb5a-4d19-97b7-7451dd88c2b6 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: "Combine: Energy consumed locally, broken down by source BA (local and imported)"
+    cellLabel: "Combine: Energy consumed locally, broken down by source BA (local and imported) by Jaime Curtis and Jason Curtis"
     config:
       source: |-
         # Credit: This code written by Jaime Curtis and Jason Curtis
         # Used with permission as part of Terra.do's Software for Climate Online Course (June 2024 Cohort) 
-
+        # 
+        # DOMAIN KNOWLEDGE AND TERMINOLOGY
+        # 
+        # Demand (D): energy consumed locally
+        # Net generation (NG): energy generated locally
+        # Total interchange (TI): net energy exported (positive means net outflow, negative means net inflow)
+        # 
+        # The balancing authority is responsible for balancing this equation:
+        # Total interchange = Net generation - Demand
+        # i.e. if local generation is larger than local demand, the BA is exporting electricity (positive total interchange). 
+        # If local demand is larger than local generation, the BA is importing electricity (negative total interchange)
+        # 
+        # To get a true representation of the grid mix of local energy, combine these pieces of data:
+        # Demand, Net generation, and Total interchange for the local balancing authority 
+        # Interchange (quantity of imported energy) with each connected balancing authority
+        # Grid mix of imported energy from each connected balancing authority
+        # 
+        # 
         # In the code below, we fetch the daily Demand (D), Net generation (NG), and Total interchange (TI) numbers for the LOCAL_BALANCING_AUTHORITY
         # You should see three rows for each date, one row each for TI, D, and NG.
         # You can spot check a given day to confirm that TI = NG - D
@@ -672,7 +528,7 @@ cells:
                 ).reset_index("fromba"),
                 pd.DataFrame(
                     {
-                        "fromba": selected_local_BA,
+                        "fromba": local_BA['code'],
                         consumed_locally_column_name: energy_generated_and_used_locally,
                     }
                 ),
@@ -742,9 +598,7 @@ cells:
     cellId: f33e76be-3e92-4dd0-94ed-26007d09d070 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: "Fetch data: Demand, Net generation, and Total interchange"
     config:
-      source: |-
-        
-        demand_df
+      source: demand_df
   - cellType: CODE
     cellId: 4965cfae-d594-46a0-9e2c-c8a3e5649be7 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: "Fetch data: Interchange (import or export) with each connected BA"
@@ -754,10 +608,12 @@ cells:
     cellId: 1be96583-49b4-4dfd-b189-1274d3b71182 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Subhead
     config:
-      source: "# Which Balancing Authorities supply my electricity?"
+      source: |
+        ## Who's Powering the Grid? 
+        #### A Look at the Balancing Authorities Behind the Charge
   - cellType: CHARTV2
     cellId: c3aa554b-dd1f-4a8e-8ec4-a03a14d0d734 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Energy consumed locally, broken down by source BA
+    cellLabel: Energy Consumed by Source BA
     config:
       height: null
       chartSpec:
@@ -771,6 +627,7 @@ cells:
                   style: solid
                 ticks: {}
                 labels: {}
+              title: " "
               timeUnit: yearmonthdatehours
               dataFrameColumn: timestamp
             series:
@@ -795,6 +652,7 @@ cells:
                   value: 1
                 tooltip:
                   type: auto
+                legendTitle: " "
                 line: true
                 point: false
                 normalize: false
@@ -806,9 +664,12 @@ cells:
           selectionEnabled: false
       chartSelection: {}
       colorMappings:
+        SC: "#E45756"
         AVA: "#B279A2"
+        DUK: "#F58518"
         PGE: "#FF9DA6"
         PJM: "#E45756"
+        PNM: "#4C78A8"
         SCL: "#54A24B"
         TEX: "#F58518"
         AVRN: "#FF9DA6"
@@ -818,6 +679,7 @@ cells:
         CENT: "#4C78A8"
         CHPD: "#F58518"
         CISO: "#BAB0AC"
+        CPLE: "#4C78A8"
         DOPD: "#4C78A8"
         GCPD: "#E45756"
         GRID: "#F58518"
@@ -830,9 +692,17 @@ cells:
         PACE: "#72B7B2"
         PACW: "#B279A2"
         PSEI: "#72B7B2"
+        SCEG: "#72B7B2"
+        SEPA: "#54A24B"
+        SOCO: "#EECA3B"
+        SWPP: "#E45756"
         TPWR: "#EECA3B"
+        WACM: "#72B7B2"
         WALC: "#EECA3B"
         ISNE - ISO New England: "#4C78A8"
+        NEVP - Nevada Power Company: "#F58518"
+        PSEI - Puget Sound EnergyInc.: "#72B7B2"
+        PSCO - Public Service Company of Colorado: "#F58518"
         NYIS - New York Independent System Operator: "#F58518"
         LDWP - Los Angeles Department of Water and Power: "#E45756"
       resultVariable: filter_result_5
@@ -875,14 +745,14 @@ cells:
         columnAggregations: null
   - cellType: MARKDOWN
     cellId: e26acdee-5013-4202-a351-b31e438c124b # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: null
+    cellLabel: Subhead
     config:
       source: |-
-        # What fuel types supply my electricity? 
-        Combined Local and External Balancing Authorities
+        ## What’s Fueling the Flow? 
+        #### A Look at Energy Sources from All Local BAs 
   - cellType: CHARTV2
     cellId: 8f259897-f450-4238-9aa5-ab048d0625db # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Local electricity consumption grid mix, including grid mix of imported electricity
+    cellLabel: Grid Mix and Electricity Usage from Local and External BAs
     config:
       height: null
       chartSpec:
@@ -896,6 +766,7 @@ cells:
                   style: solid
                 ticks: {}
                 labels: {}
+              title: " "
               dataFrameColumn: timestamp
             series:
               - id: e6dcca71-c67f-4e71-9fa8-c236bd380740
@@ -920,6 +791,7 @@ cells:
                   value: 1
                 tooltip:
                   type: auto
+                legendTitle: " "
                 line: true
                 point: false
                 normalize: false
@@ -946,70 +818,21 @@ cells:
       displayType: CHART
       displayTableConfig: null
   - cellType: MARKDOWN
-    cellId: 15d37c2d-ad29-4451-8217-77ad1edfbcb1 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Response to Assignment
+    cellId: 66d844c5-838c-471c-86a0-6a43c9e72537 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Subhead
     config:
-      source: "# My Findings
-
-        ### Simplify the Data
-
-        After simplifying the data to categorize by 1) Local BA or External BAs and 2) Fossil Fuels, Renewables, or Nuclear/Other, the data visualization by simplified energy sources showed a rather steady energy usage from Renewables and Nuclear/Other energy sources. Fossil Fuels handled more of the variability in usage.
-
-
-        ### Seasonal Trends
-
-        The spikes in Fossil Fuel usage correlated to the summer months. I examined minimum, maximum, and average energy use of Fossil Fuels for these periods:\ 
-
-        \ - Peak 2022
-
-        \ - Peak 2023
-
-        \ - Off-Peak 2022-23\ 
-
-        \ - Off-Peak 2023-24
-
-
-        ### Required Renewable Increase
-
-        After noting the average of minimum off-peak fossil fuel usage, I calculated the necessary percentage increase in renewable energy to replace the baseline of fossil fuel energy usage.
-
-
-        \ <!-- Updates made above: Change time horizon to 2 years -->
-
-        \ <!-- Estimated Coding level Intermediate / 2.0 -->
-
-        \  "
-  - cellType: TEXT
-    cellId: 2a76813b-7466-4df4-9702-6fd59ad501a5 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: null
-    config:
-      richText:
-        - type: p
-          children:
-            - text: First, I simplified the data to add categorization for
-        - type: ol
-          children:
-            - type: li
-              children:
-                - type: lic
-                  children:
-                    - text: Local BA or External BA
-            - type: li
-              children:
-                - type: lic
-                  children:
-                    - text: Fossil Fuels, Renewables, or Nuclear/Other
+      source: "## Is My Power Clean, Fossil-Fueled, or Somewhere in Between?"
   - cellType: CODE
     cellId: f44ba88e-e191-4f91-9cfc-fa8fb7c7d282 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Categorize Energy Sources
+    cellLabel: Simplify Data by Exernal/Internal BA and Energy Source Type
     config:
-      source: |-
-        # Prepare simplified dataframe to add columns to categorize 
-        # 1) BA as Local or External
-        # 2) Energy Source as Renewable/Fossil/Other 
+      source: |
+        # Simplify data: 
+        # Is energy from Local or External BA?
+        # Is energy source of type Renewable, Fossil, or Other? 
         usage_ba_type_simple = usage_by_ba_and_generation_type
-        usage_ba_type_simple['ba'] = usage_ba_type_simple['fromba'].where(usage_ba_type_simple['fromba'] == 'NYIS', other='External BA')
-        usage_ba_type_simple['generation_renewable'] = usage_ba_type_simple['generation_type'].replace({
+        usage_ba_type_simple['ba'] = usage_ba_type_simple['fromba'].where(usage_ba_type_simple['fromba'] == local_BA['code'], other='External BA')
+        usage_ba_type_simple['generation_category'] = usage_ba_type_simple['generation_type'].replace({
             'Wind': 'Renewable',
             'Solar': 'Renewable',
             'Hydro': 'Renewable',
@@ -1021,15 +844,10 @@ cells:
             'Other': 'Nuclear/Other'
         })
 
-        usage_ba_type_simple
-  - cellType: MARKDOWN
-    cellId: 66d844c5-838c-471c-86a0-6a43c9e72537 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: null
-    config:
-      source: "# Is my electricity from Renewable, Fossil Fuels, or Other sources?"
+        usage_ba_type_simple.head(30)
   - cellType: CHARTV2
     cellId: 6c8083af-56fe-4325-ab13-3e2f77e372c9 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Visualization of Energy from Renewable, Fossil Fuels, and Other Sources 
+    cellLabel: Visualization of Energy from Renewable, Fossil Fuels, and Other Sources  (MWh)
     config:
       height: null
       chartSpec:
@@ -1058,7 +876,7 @@ cells:
                   aggregate: sum
                 dataFrameColumns:
                   - Usage (MWh)
-                colorDataFrameColumn: generation_renewable
+                colorDataFrameColumn: generation_category
                 colorOrder: ascending
                 color:
                   type: series
@@ -1068,7 +886,7 @@ cells:
                   value: 1
                 tooltip:
                   type: auto
-                legendTitle: Energy Sources
+                legendTitle: " "
                 line: true
                 point: false
                 interpolate: linear
@@ -1102,8 +920,98 @@ cells:
       displayType: CHART
       displayTableConfig: null
   - cellType: CODE
+    cellId: a6950048-b594-48fe-8377-4ad1e6143acb # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Prepare data set from Generation Categories by MWh and as a Percentage of Total Usage
+    config:
+      source: |-
+        # Prepare usage by generation category, both as MWh and percentage of total usage
+        # Group by timestamp and sum Usage (MWh) for each generation category
+        usage_by_category = usage_ba_type_simple.groupby(['timestamp', 'generation_category']).agg(
+            subtotal_usage=('Usage (MWh)', 'sum')
+        ).reset_index()
+
+        # Calculate the total usage per day
+        daily_total_usage = usage_by_category.groupby('timestamp').agg(
+            total_usage_daily=('subtotal_usage', 'sum') 
+        ).reset_index()
+
+        # Merge the total daily usage back with the original usage_by_category dataframe
+        usage_by_category = usage_by_category.merge(daily_total_usage, on='timestamp', how='left')
+
+        # Calculate the percentage of usage for each generation category
+        usage_by_category['usage_percentage'] = (usage_by_category['subtotal_usage'] / usage_by_category['total_usage_daily']) * 100
+
+        usage_by_category
+  - cellType: CHARTV2
+    cellId: 8698ff18-769f-4a08-8c07-3eddbd101db8 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Visualization of Energy from Renewable, Fossil Fuels, and Other Sources as a Percentage
+    config:
+      height: null
+      chartSpec:
+        type: layered
+        facet: {}
+        layers:
+          - id: 8a13b84c-c583-414d-98dc-d2ff57ed9665
+            xAxis:
+              type: datetime
+              style:
+                grid:
+                  style: solid
+                ticks: {}
+                labels: {}
+              title: " 2022-2024"
+              dataFrameColumn: timestamp
+            series:
+              - id: 7c571772-6e76-4316-a9cb-e3cc92585cda
+                type: area
+                axis:
+                  type: number
+                  style:
+                    grid:
+                      style: solid
+                    ticks: {}
+                    labels: {}
+                  title: Percentage of Total
+                dataFrameColumns:
+                  - usage_percentage
+                colorDataFrameColumn: generation_category
+                colorOrder: ascending
+                color:
+                  type: series
+                  dataType: number
+                  colorsBySeriesValues: {}
+                opacity:
+                  type: static
+                  value: 1
+                tooltip:
+                  type: auto
+                legendTitle:  
+                line: true
+                point: false
+                normalize: false
+            dataFrame: usage_by_category
+        settings:
+          legend:
+            position: right
+          tooltip: true
+          selectionEnabled: false
+      chartSelection: {}
+      colorMappings:
+        Renewable: "#E45756"
+        Fossil Fuels: "#4C78A8"
+        Nuclear/Other: "#F58518"
+      resultVariable: chart_result_11
+      outputResult: false
+      displayType: CHART
+      displayTableConfig: null
+  - cellType: MARKDOWN
+    cellId: e166122f-dd2f-4622-beae-53a6108c86fb # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Subhead
+    config:
+      source: "## Alternating Currents: The Fluctuations in Electricity Consumption"
+  - cellType: CODE
     cellId: e512299b-951a-4447-9e64-60771cad26a0 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: null
+    cellLabel: Clean and Smooth Daily Electricity Usage
     config:
       source: |-
         # Simplify to show full 'Usage (MWh)' by day
@@ -1112,30 +1020,18 @@ cells:
         # Filter 'Usage (MWh)' to show only when there is MWh data
         daily_usage['Filtered Usage (MWh)'] = daily_usage['Usage (MWh)'].where(daily_usage['Usage (MWh)'] > 0)
 
+        # Calculate average daily usage across all days, prepare to show in chart
         avg_daily_usage = daily_usage['Filtered Usage (MWh)'].mean()
+        daily_usage['Average Usage (MWh)'] = daily_usage['Filtered Usage (MWh)'].mean() 
 
-        daily_usage['Average Usage (MWh)'] = daily_usage['Filtered Usage (MWh)'].mean() # Delete - testing to show line
+        # Calculate the simple moving average (SMA) over specified number of days
+        window_size = 15 
+        daily_usage['Simple Moving Average (MWh)'] = daily_usage['Filtered Usage (MWh)'].rolling(window=window_size, center=True).mean()
 
-        # Calculate the simple moving average (SMA)
-        # window_size = 10
-        window_size2 = 15 # preferred 
-        # daily_usage['SMA'] = daily_usage['Filtered Usage (MWh)'].rolling(window=window_size, center=True).mean()
-        daily_usage['SMA2'] = daily_usage['Filtered Usage (MWh)'].rolling(window=window_size2, center=True).mean()
-
-        print(daily_usage)
-
-        # filtered_rows = daily_usage[daily_usage['timestamp'] == '2023-02-19']
-        # print(filtered_rows)
-        # daily_usage
-        # average = daily_usage['Filtered Usage (MWh)'].mean()
-        # min = daily_usage['Filtered Usage (MWh)'].min()
-        # max = daily_usage['Filtered Usage (MWh)'].max()
-        # print(average, min, max)
-        #     'Usage (MWh)': round(subset['Usage (MWh)'].min(), 2)
-        #     'Usage (MWh)': round(subset['Usage (MWh)'].max(), 2)
+        daily_usage
   - cellType: CHARTV2
     cellId: 65990d50-8007-4765-8e7a-1f39388d44b1 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: null
+    cellLabel: Visualization of Load Patterns  for Selected BA
     config:
       height: null
       chartSpec:
@@ -1149,6 +1045,7 @@ cells:
                   style: solid
                 ticks: {}
                 labels: {}
+              title: " 2022-2024"
               dataFrameColumn: timestamp
             series:
               - id: 0cc7ae27-b612-401b-b658-4d1bcf84e5eb
@@ -1160,6 +1057,7 @@ cells:
                       style: solid
                     ticks: {}
                     labels: {}
+                  title: Usage (MWh)
                 dataFrameColumns:
                   - Filtered Usage (MWh)
                 colorOrder: ascending
@@ -1172,6 +1070,7 @@ cells:
                   type: auto
                 point: false
                 stroke: solid
+                width: 1
               - id: 9609c440-12e5-4e69-8648-50cba36033b3
                 type: line
                 axis:
@@ -1181,12 +1080,13 @@ cells:
                       style: solid
                     ticks: {}
                     labels: {}
+                  title: Usage (MWh)
                 dataFrameColumns:
                   - Average Usage (MWh)
                 colorOrder: ascending
                 color:
                   type: static
-                  color: "#F58518"
+                  color: "#54A24B"
                 opacity:
                   type: static
                   value: 1
@@ -1194,28 +1094,7 @@ cells:
                   type: auto
                 point: false
                 stroke: solid
-              - id: 3cf3462c-821c-4c09-b69d-297cf9ee447a
-                type: line
-                axis:
-                  type: number
-                  style:
-                    grid:
-                      style: solid
-                    ticks: {}
-                    labels: {}
-                  aggregate: sum
-                dataFrameColumns: []
-                colorOrder: ascending
-                color:
-                  type: static
-                  color: "#E45756"
-                opacity:
-                  type: static
-                  value: 1
-                tooltip:
-                  type: auto
-                point: false
-                stroke: solid
+                width: 1
               - id: 1ff6b920-679b-44e0-a90f-671eadc501b3
                 type: line
                 axis:
@@ -1225,8 +1104,9 @@ cells:
                       style: solid
                     ticks: {}
                     labels: {}
+                  title: Usage (MWh)
                 dataFrameColumns:
-                  - SMA2
+                  - Simple Moving Average (MWh)
                 colorOrder: ascending
                 color:
                   type: static
@@ -1238,15 +1118,15 @@ cells:
                   type: auto
                 point: false
                 stroke: solid
+                width: 3
             dataFrame: daily_usage
             seriesGroups:
               - - 0cc7ae27-b612-401b-b658-4d1bcf84e5eb
                 - 9609c440-12e5-4e69-8648-50cba36033b3
-                - 3cf3462c-821c-4c09-b69d-297cf9ee447a
                 - 1ff6b920-679b-44e0-a90f-671eadc501b3
         settings:
           legend:
-            position: right
+            position: bottom-left
           tooltip: true
           selectionEnabled: false
       chartSelection: {}
@@ -1261,23 +1141,45 @@ cells:
     config:
       source: |-
         # Find start and end dates of all peak periods
-        # TODO - Add handling for if peak begins or ends at beginning/end of time frame
         peak_period_dates = []
+        peak_days_min = 10
+
+        # Handle for when a data set begins when a peak usage period has already begun
+        SMA_index_centered = 7
+        first_SMA_day = (daily_usage['Simple Moving Average (MWh)'][SMA_index_centered])
+        cross_up_dates = []
+        if first_SMA_day > avg_daily_usage:
+            cross_up_dates.append(daily_usage.iloc[SMA_index_centered]['timestamp'].strftime('%Y-%m-%d'))
+
         # Detect cross-up (SMA crosses above avg_daily_usage)
-        daily_usage['Cross_Up'] = (daily_usage['SMA2'].shift(1) < avg_daily_usage) & (daily_usage['SMA2'] > avg_daily_usage)
+        daily_usage['Cross_Up'] = (daily_usage['Simple Moving Average (MWh)'].shift(1) < avg_daily_usage) & (daily_usage['Simple Moving Average (MWh)'] > avg_daily_usage)
         # Detect cross-down (SMA crosses below avg_daily_usage)
-        daily_usage['Cross_Down'] = (daily_usage['SMA2'].shift(1) > avg_daily_usage) & (daily_usage['SMA2'] < avg_daily_usage)
+        daily_usage['Cross_Down'] = (daily_usage['Simple Moving Average (MWh)'].shift(1) > avg_daily_usage) & (daily_usage['Simple Moving Average (MWh)'] < avg_daily_usage)
         # Extract dates when the cross happens
-        cross_up_dates = daily_usage.loc[daily_usage['Cross_Up'], 'timestamp'].dt.strftime('%Y-%m-%d').tolist()
+        cross_up_dates = cross_up_dates + (daily_usage.loc[daily_usage['Cross_Up'], 'timestamp'].dt.strftime('%Y-%m-%d').tolist())
         cross_down_dates = daily_usage.loc[daily_usage['Cross_Down'], 'timestamp'].dt.strftime('%Y-%m-%d').tolist()
 
-        # Pair star and end dates into a list
+        # Handle for when a data set ends when a peak usage period is beginning
+        if (len(cross_up_dates) == (len(cross_down_dates) + 1)):
+            cross_down_dates.append(daily_usage.iloc[(SMA_index_centered * -1)]['timestamp'].strftime('%Y-%m-%d'))
+
+        # Pair start and end dates into a list
         for cross_up_date, cross_down_date in zip(cross_up_dates, cross_down_dates):
             peak_start_end = (cross_up_date, cross_down_date)
-            peak_period_dates.append(peak_start_end)
+            peak_num_days = abs((pd.to_datetime(cross_up_date, format="%Y-%m-%d") - pd.to_datetime(cross_down_date, format="%Y-%m-%d")))
+            if (peak_num_days.days >= peak_days_min):
+                peak_period_dates.append(peak_start_end)
 
-        # TODO - PREPARE DATA SET FOR ALL OFF PEAK
 
+        # Prepare data that is off-peak (excludes peak date ranges) 
+        # Create a boolean mask for data within cross_up and cross_down ranges
+        mask = pd.Series(False, index=daily_usage.index)
+        for up_date, down_date in zip(cross_up_dates, cross_down_dates):
+            mask |= (daily_usage['timestamp'] >= up_date) & (daily_usage['timestamp'] <= down_date)
+        # Invert the mask to get data outside those ranges
+        outside_ranges_data = daily_usage[~mask]
+
+        off_peak_subset = outside_ranges_data['Filtered Usage (MWh)']
 
         # Filter the MWh based on the period's date range
         def get_MWh(periods_dates):
@@ -1286,9 +1188,13 @@ cells:
             return filtered_usage_mwh
 
         # Prepare summary of data for each period
-        def summarize_period_MWh(dates, subset):
+        def summarize_period_MWh(period_dates, subset):
+            if isinstance(period_dates, str):
+                label = period_dates
+            else:
+                label = 'Peak: ' + period_dates[0] + ' - ' + period_dates[1]
             new_summary = {
-                'Period': 'Peak Period: ' + dates[0] + ' - ' +dates[1],
+                'Period': label,
                 'Average Usage (MWh)': round(subset.mean(), 0),
                 'Minimum Usage (MWh)': round(subset.min(), 0),
                 'Maximum Usage (MWh)': round(subset.max(), 0)
@@ -1302,13 +1208,19 @@ cells:
             summary_period = summarize_period_MWh(peak_period_date, peak_subset)
             summaries_all_periods.append(summary_period)
 
+
+        off_peak_label_display = 'Average Off-Peak'
+        off_peak_summary = summarize_period_MWh(off_peak_label_display, off_peak_subset)
+        summaries_all_periods.append(off_peak_summary)
+
+
         summaries_all_periods_df = pd.DataFrame(summaries_all_periods) 
         tidy_summaries_df = pd.melt(summaries_all_periods_df, id_vars='Period', var_name='Summary Type', value_name='Usage (MWh)')
 
         summaries_all_periods_df
   - cellType: CHARTV2
     cellId: 13fe8a08-b3b3-4104-8622-222069052485 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Visualization of Usage (MWh)  Summary by Periods
+    cellLabel: "Visualization of Usage Statistics: Peak and Off-Peak Periods"
     config:
       height: null
       chartSpec:
@@ -1350,13 +1262,14 @@ cells:
                   value: 1
                 tooltip:
                   type: auto
+                legendTitle: " "
                 barWidth: 1
                 orientation: vertical
                 layout: grouped
             dataFrame: tidy_summaries_df
         settings:
           legend:
-            position: right
+            position: top-left
           tooltip: true
           selectionEnabled: false
       chartSelection: {}
@@ -1372,192 +1285,146 @@ cells:
     cellId: 9b351146-2d80-41a3-a6c5-3bc3a5600482 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Subhead
     config:
-      source: "# How much electricity is from fossil fuels?"
-  - cellType: CHARTV2
-    cellId: 77798991-5d13-42b5-a94c-ab94a062d962 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Visualization of Energy from Fossil Fuels Only 
-    config:
-      height: null
-      chartSpec:
-        type: layered
-        facet: {}
-        layers:
-          - id: 326a48f9-e849-4fbf-b29b-3e371eb0f656
-            xAxis:
-              type: datetime
-              style:
-                grid:
-                  style: solid
-                ticks: {}
-                labels: {}
-              title: 2022-2024
-              dataFrameColumn: timestamp
-            series:
-              - id: 77d33473-251d-481b-87ec-fd2d111c709a
-                type: area
-                axis:
-                  type: number
-                  style:
-                    grid:
-                      style: solid
-                    ticks: {}
-                    labels: {}
-                  aggregate: sum
-                dataFrameColumns:
-                  - Usage (MWh)
-                colorOrder: ascending
-                color:
-                  type: static
-                  colorsBySeriesValues: {}
-                opacity:
-                  type: static
-                  value: 1
-                tooltip:
-                  type: auto
-                line: true
-                point: false
-                normalize: false
-            dataFrame: usage_ba_type_simple
-        settings:
-          legend:
-            position: right
-          tooltip: true
-          selectionEnabled: false
-      chartSelection: {}
-      colorMappings:
-        Coal: "#4C78A8"
-        "True": "#4C78A8"
-        "null": "#F58518"
-        Petroleum: "#E45756"
-        Natural gas: "#F58518"
-      resultVariable: chart_result_5
-      outputResult: true
-      displayType: CHART
-      displayTableConfig:
-        pageSize: 50
-        height: null
-        hideIcons: false
-        defaultColumnWidth: null
-        hideIndex: false
-        defaultSortColumn: null
-        defaultSortIndexColumn: null
-        defaultSortDirection: ASC
-        conditionalFormatting: null
-        calcs: null
-        filters:
-          - column: generation_renewable
-            predicate:
-              op: EQ
-              arg: Fossil Fuels
-            columnType: STRING
-        columnProperties:
-          - originalName: Usage (MWh)
-            renameTo: null
-            size: 150
-            wrapText: null
-            displayFormat: null
-          - originalName: ba
-            renameTo: null
-            size: 65
-            wrapText: null
-            displayFormat: null
-          - originalName: fromba
-            renameTo: null
-            size: 91
-            wrapText: null
-            displayFormat: null
-          - originalName: generation_renewable
-            renameTo: null
-            size: 173
-            wrapText: null
-            displayFormat: null
-          - originalName: generation_type
-            renameTo: null
-            size: 140
-            wrapText: null
-            displayFormat: null
-          - originalName: row-index-0
-            renameTo: null
-            size: 46
-            wrapText: null
-            displayFormat: null
-          - originalName: timestamp
-            renameTo: null
-            size: 156
-            wrapText: null
-            displayFormat: null
-        columnOrdering: null
-        customColumnOrdering: null
-        pinnedColumns: null
-        hiddenColumns: null
-        pinIndexColumns: false
-        showAggregations: false
-        columnAggregations: null
+      source: "## To what extent are renewable energy sources meeting demand?"
   - cellType: CODE
-    cellId: 4f096515-1fe8-46ad-9c1d-d742a4970894 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Simplify Data Set to Usage by Date for Fossil Fuels Only 
+    cellId: 08cfa04f-9035-49fd-938d-7d6bff009bae # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Summarize Electricity from Renewable as MWh and as Percentages
     config:
       source: |-
-        # Subset of data: Timestamp, Generation Source, Usage
-        usage_simple = usage_ba_type_simple.groupby(['timestamp','generation_renewable']).sum('Usage(MWh)').reset_index()
-        usage_simple['timestamp'] = pd.to_datetime(usage_simple['timestamp'])
+        # Function to calculate % increase in renewable energy supply required to meet total usage
+        def calc_more_renewable (tot, current):
+            percent_more_renewable_needed = round((tot / current) * 100)
+            return percent_more_renewable_needed
 
-        # Smaller subset of data: Timestamp and Usage for Fossil Fuels only
-        usage_fossils_simple = usage_simple[usage_simple['generation_renewable'] == 'Fossil Fuels']
-        usage_fossils_simple
-  - cellType: TEXT
-    cellId: ce83cbf1-db47-49a5-87f0-3fb432cacd3c # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: null
-    config:
-      richText:
-        - type: p
-          children:
-            - text: "The spikes in Fossil Fuel usage correlated to the summer months (since I am using New York as my test data). I prepared the minimum, maximum, and average energy use of Fossil Fuels for by period: "
+        # Function to filter the df to get the 'Renewable' row for specified date
+        def get_renewable_usage_data(display_label, renewable_data):
+            summary_row = [display_label, 
+                            round(renewable_data['subtotal_usage'].values[0], 2),
+                            int(renewable_data['usage_percentage'].values[0]),
+                            round(renewable_data['total_usage_daily'].values[0], 2),
+                            calc_more_renewable(renewable_data['total_usage_daily'].values[0], renewable_data['subtotal_usage'].values[0])
+            ]
+            return summary_row
+
+        # Get the averages of the electricity usage from renewable sources 
+        renewable_usage = usage_by_category[usage_by_category['generation_category'] == 'Renewable']
+        average_renewable_usage = renewable_usage.select_dtypes(include='number').mean()
+        average_renewable_usage_df = pd.DataFrame(average_renewable_usage).T
+
+        # Get the data where the 'Filtered Usage (MWh)' is the min value, and Renewable
+        min_filtered_usage_row = usage_by_category.loc[usage_by_category['total_usage_daily'].idxmin()]
+        min_usage_day = min_filtered_usage_row['timestamp']
+        min_filtered_usage_renewable = usage_by_category.loc[
+            (usage_by_category['timestamp'] == min_usage_day) & 
+            (usage_by_category['generation_category'] == 'Renewable')
+        ]
+        # Get the date where the 'Filtered Usage (MWh)' is the max value
+        max_filtered_usage_row = usage_by_category.loc[usage_by_category['total_usage_daily'].idxmax()]
+        max_usage_day = max_filtered_usage_row['timestamp']
+        max_filtered_usage_renewable = usage_by_category.loc[
+            (usage_by_category['timestamp'] == max_usage_day) & 
+            (usage_by_category['generation_category'] == 'Renewable')
+        ]
+
+        summary_df = pd.DataFrame([get_renewable_usage_data('Average Day', average_renewable_usage_df)], 
+            columns=['Type', 'Renewable Subtotal (MWh)', '% Renewables of Current Total',
+            'Total (MWh)', '% Increase in Renewables Needed'])
+
+        summary_df.loc[len(summary_df)] = get_renewable_usage_data('Lowest Usage Day', min_filtered_usage_renewable) 
+        summary_df.loc[len(summary_df)] = get_renewable_usage_data('Highest Usage Day', max_filtered_usage_renewable) 
+
+        # Prepare for display average day current percentage and percentage increase needed
+        average_day_renewables_percentage = str(summary_df.loc[summary_df['Type'] == 'Average Day', '% Renewables of Current Total'].values[0]) + '%'
+        average_day_renewables_percentage_needed = str(summary_df.loc[summary_df['Type'] == 'Average Day', '% Increase in Renewables Needed'].values[0]) + '%'
+
+        summary_df
   - cellType: CODE
-    cellId: 52a3ad38-c1ea-42f9-8bc8-7e45414db4f8 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Simplify Data Set to Usage for Renewables Only and get Avg 
-    config:
-      source: |-
-        # Subset of data: Timestamp and Usage for Renewables only
-        usage_renewable_simple = usage_simple[usage_simple['generation_renewable'] == 'Renewable']
-        usage_renewable_simple.head()
-  - cellType: CODE
-    cellId: c0f12be4-9c82-4a71-bca2-b3c1e662efc4 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Simple Analysis for Replading Minimum Fossil Fuels with Renewable Sources
+    cellId: 0e1eda63-76de-4c21-a47a-82b6a9be1592 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Summary
     config:
       source: |
-        # Calculate average of minimum Off Peak and Peak usage
-        offpeak_fossil_min = int(np.mean([
-            summaries_df[(summaries_df['Season'] == 'Off-Peak 2022-23') & (summaries_df['Usage Metric'] == 'Minimum')]['Usage (MWh)'].values[0],
-            summaries_df[(summaries_df['Season'] == 'Off-Peak 2023-24') & (summaries_df['Usage Metric'] == 'Minimum')]['Usage (MWh)'].values[0],
-            ]))
+        print(f'''{local_BA['descrip']} ({local_BA['code']})''')
+  - cellType: METRIC
+    cellId: e1b1eb23-2eca-4100-8ee4-3d605f897b7a # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Electricity Currently Provided  from Renewables on an  Average Day
+    config:
+      title: " "
+      valueVariableName: average_day_renewables_percentage
+      showComparison: false
+      comparisonType: VALUE
+      comparisonVariableName: null
+      comparisonFormat: null
+      comparisonLabel: ""
+      displayFormat:
+        format: PLAIN
+        currency: USD
+        columnType: NUMBER
+        showSeparators: true
+        numDecimalDigits: -1
+        abbreviateLargeNumbers: false
+      valueColumn: null
+      valueRowIndex: null
+      valueAggregate: null
+      comparisonColumn: null
+      comparisonRowIndex: null
+      comparisonAggregate: null
+      valueResultVariable: value
+      comparisonResultVariable: comparison_value
+      outputResult: true
+  - cellType: METRIC
+    cellId: 4efa18d1-d0f2-404b-adc8-e75db888f095 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Increase Required to Renewable Supply  Meet Electricity Demand for an Average Day
+    config:
+      title: " "
+      valueVariableName: average_day_renewables_percentage_needed
+      showComparison: false
+      comparisonType: VALUE
+      comparisonVariableName: null
+      comparisonFormat: null
+      comparisonLabel: ""
+      displayFormat:
+        format: PLAIN
+        currency: USD
+        columnType: NUMBER
+        showSeparators: true
+        numDecimalDigits: -1
+        abbreviateLargeNumbers: false
+      valueColumn: null
+      valueRowIndex: null
+      valueAggregate: null
+      comparisonColumn: null
+      comparisonRowIndex: null
+      comparisonAggregate: null
+      valueResultVariable: value_2
+      comparisonResultVariable: comparison_value
+      outputResult: true
+  - cellType: CODE
+    cellId: 64ea8838-816a-4351-9ecd-91ec46fafb15 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Summary Renewable Usage Chart (MWh and %)
+    config:
+      source: summary_df
+  - cellType: MARKDOWN
+    cellId: 93e3af2a-256f-442c-b1b3-bdc5546919e4 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Break
+    config:
+      source: _____________________________________________
+  - cellType: MARKDOWN
+    cellId: a23f6dc9-b531-484a-925d-5b7b2ba0aa43 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Notes & Credits
+    config:
+      source: |+
+        ## Power Sources: Notes & Credits
 
-        peak_fossil_min = int(np.mean([
-            summaries_df[(summaries_df['Season'] == 'Peak Season 2022') & (summaries_df['Usage Metric'] == 'Minimum')]['Usage (MWh)'].values[0],
-            summaries_df[(summaries_df['Season'] == 'Peak Season 2023') & (summaries_df['Usage Metric'] == 'Minimum')]['Usage (MWh)'].values[0],
-            ]))
+        Project initially prepared as an assignment for Terra.do's Software for Climate Online Course with Jaime Curtis and Jason Curtis (June 2024 Cohort)
 
+        The data access and energy sources combination code reused with permission from Jaime Curtis and Jason Curtis (Terra.do).
 
-        # Calculate average of all Renewables usage
-        usage_renewable_avg = int(usage_renewable_simple['Usage (MWh)'].mean())
+        #### EIA API Dashboard
+         * https://www.eia.gov/opendata/browser/electricity/rto/daily-region-data 
 
-        # Calculate percentage increase needed in Renewables (rough)
-        replace_fossils_LOE = int((offpeak_fossil_min / usage_renewable_avg)*100)
+        #### Hourly Electric Grid Monitor
+         * https://www.eia.gov/electricity/gridmonitor/dashboard/electric_overview/US48/US48
 
-        # Improve formatting # TODO
-        if selected_local_BA == "NYIS":
-            BA_display = "New York BA"
-        else: 
-            BA_display = "Specified BA"
-
-        CRED = '\033[93m'
-        CEND = '\033[0m'    
-
-        print(BA_display, "average of minimum monthly energy from fossil fuels:")
-        print("  Off-peak: {:,} MWh".format(offpeak_fossil_min))
-        print("  Peak: {:,} MWh".format(peak_fossil_min))
-        print(f"\n{BA_display} currently supplies an average of {usage_renewable_avg:,} MWh per month from renewable sources.")
-        print(f"\nTo replace the baseline fossil fuel usage, {BA_display} must increase energy supply from \nrenewable sources by {CRED}{replace_fossils_LOE}%{CEND}.")
 appLayout:
   visibleMetadataFields:
     - NAME
@@ -1570,7 +1437,7 @@ appLayout:
     - TABLE_OF_CONTENTS
   fullWidth: false
   tabs:
-    - name: Tab 1
+    - name: Balancing Authorities
       rows:
         - columns:
             - start: 0
@@ -1579,24 +1446,13 @@ appLayout:
                 - showSource: false
                   hideOutput: false
                   type: CELL
-                  cellId: 46dcf741-4a4e-4b91-acb7-cbe1ec91694d
+                  cellId: adc2b436-7779-479e-8f79-ad3f3543af31
                   sharedFilterId: null
                   height: null
-                  showLabel: true
+                  showLabel: false
         - columns:
             - start: 0
-              end: 120
-              elements:
-                - showSource: false
-                  hideOutput: false
-                  type: CELL
-                  cellId: bea360c9-60a0-4e53-9fb4-57639684cc6a
-                  sharedFilterId: null
-                  height: null
-                  showLabel: true
-        - columns:
-            - start: 0
-              end: 30
+              end: 75
               elements:
                 - showSource: false
                   hideOutput: false
@@ -1612,21 +1468,10 @@ appLayout:
                 - showSource: false
                   hideOutput: false
                   type: CELL
-                  cellId: a825e967-77fe-420f-89ba-edcc460e4999
-                  sharedFilterId: null
-                  height: null
-                  showLabel: true
-        - columns:
-            - start: 0
-              end: 120
-              elements:
-                - showSource: false
-                  hideOutput: false
-                  type: CELL
                   cellId: 09bf6c45-8448-4285-9f75-1490a4b21d62
                   sharedFilterId: null
                   height: null
-                  showLabel: true
+                  showLabel: false
         - columns:
             - start: 0
               end: 120
@@ -1645,65 +1490,10 @@ appLayout:
                 - showSource: false
                   hideOutput: false
                   type: CELL
-                  cellId: 63554235-feb9-428f-be5e-91217b13700d
-                  sharedFilterId: null
-                  height: null
-                  showLabel: true
-        - columns:
-            - start: 0
-              end: 120
-              elements:
-                - showSource: false
-                  hideOutput: false
-                  type: CELL
-                  cellId: ba0c3f00-2f31-4172-b59e-f793504a7f62
-                  sharedFilterId: null
-                  height: null
-                  showLabel: true
-        - columns:
-            - start: 0
-              end: 120
-              elements:
-                - showSource: false
-                  hideOutput: false
-                  type: CELL
-                  cellId: d76072fc-b05d-43c5-9933-38cc4692acc3
-                  sharedFilterId: null
-                  height: null
-                  showLabel: true
-        - columns:
-            - start: 0
-              end: 120
-              elements:
-                - showSource: false
-                  hideOutput: false
-                  type: CELL
-                  cellId: f33e76be-3e92-4dd0-94ed-26007d09d070
-                  sharedFilterId: null
-                  height: null
-                  showLabel: true
-        - columns:
-            - start: 0
-              end: 120
-              elements:
-                - showSource: false
-                  hideOutput: false
-                  type: CELL
-                  cellId: 4965cfae-d594-46a0-9e2c-c8a3e5649be7
-                  sharedFilterId: null
-                  height: null
-                  showLabel: true
-        - columns:
-            - start: 0
-              end: 120
-              elements:
-                - showSource: false
-                  hideOutput: false
-                  type: CELL
                   cellId: 1be96583-49b4-4dfd-b189-1274d3b71182
                   sharedFilterId: null
                   height: null
-                  showLabel: true
+                  showLabel: false
         - columns:
             - start: 0
               end: 120
@@ -1725,7 +1515,7 @@ appLayout:
                   cellId: e26acdee-5013-4202-a351-b31e438c124b
                   sharedFilterId: null
                   height: null
-                  showLabel: true
+                  showLabel: false
         - columns:
             - start: 0
               end: 120
@@ -1744,10 +1534,34 @@ appLayout:
                 - showSource: false
                   hideOutput: false
                   type: CELL
+                  cellId: 93e3af2a-256f-442c-b1b3-bdc5546919e4
+                  sharedFilterId: null
+                  height: null
+                  showLabel: false
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: a23f6dc9-b531-484a-925d-5b7b2ba0aa43
+                  sharedFilterId: null
+                  height: null
+                  showLabel: false
+    - name: Power Sources
+      rows:
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
                   cellId: 66d844c5-838c-471c-86a0-6a43c9e72537
                   sharedFilterId: null
                   height: null
-                  showLabel: true
+                  showLabel: false
         - columns:
             - start: 0
               end: 120
@@ -1766,7 +1580,31 @@ appLayout:
                 - showSource: false
                   hideOutput: false
                   type: CELL
-                  cellId: 9b351146-2d80-41a3-a6c5-3bc3a5600482
+                  cellId: 8698ff18-769f-4a08-8c07-3eddbd101db8
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+    - name: Usage Fluctuations
+      rows:
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: e166122f-dd2f-4622-beae-53a6108c86fb
+                  sharedFilterId: null
+                  height: null
+                  showLabel: false
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 65990d50-8007-4765-8e7a-1f39388d44b1
                   sharedFilterId: null
                   height: null
                   showLabel: true
@@ -1777,7 +1615,52 @@ appLayout:
                 - showSource: false
                   hideOutput: false
                   type: CELL
-                  cellId: 77798991-5d13-42b5-a94c-ab94a062d962
+                  cellId: 13fe8a08-b3b3-4104-8622-222069052485
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+    - name: Renewables Meeting Demand
+      rows:
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 9b351146-2d80-41a3-a6c5-3bc3a5600482
+                  sharedFilterId: null
+                  height: null
+                  showLabel: false
+        - columns:
+            - start: 0
+              end: 60
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: e1b1eb23-2eca-4100-8ee4-3d605f897b7a
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+            - start: 60
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 4efa18d1-d0f2-404b-adc8-e75db888f095
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 64ea8838-816a-4351-9ecd-91ec46fafb15
                   sharedFilterId: null
                   height: null
                   showLabel: true
