@@ -1,14 +1,14 @@
 schemaVersion: 3
 meta:
-  sourceVersionId: b9bbd881-c2bc-4c90-a58e-8e8ac59313ee # DO NOT CHANGE - Hex uses this to match up project versions when reimporting the file
-  description: The project analyzes electricity generation, demand, and interchange data from the EIA API for a selected Balancing Authority to determine the grid mix and the extent to which renewable energy sources meet local demand. It includes data fetching, processing, and visualization to provide insights into energy usage patterns and the contribution of different fuel types.
+  sourceVersionId: 3471b811-4585-4c43-bc9f-85c7640838e0 # DO NOT CHANGE - Hex uses this to match up project versions when reimporting the file
+  description: This project taps into the energy stream, fetching and analyzing electricity generation and demand data from the EIA API for a chosen Balancing Authority. It visualizes the grid mix, energy sources, and consumption patterns to provide insights into how we’re keeping the lights on and how much of our electricity is from renewable sources.
   projectId: ede39a0b-fd2b-4797-9189-cd550c1c5dd1 # DO NOT CHANGE - Unique ID of the project from which this file was generated
   title: "Sparking Insights: Electricity Demand and Generation"
   timezone: America/Los_Angeles
   appTheme: SYS_PREF
   codeLanguage: PYTHON
   status:
-    name: In development
+    name: Completed
   categories:
     - name: Dashboard
   castDecimalsDefault: true
@@ -349,7 +349,7 @@ cells:
           - WALC - Western Area Power Administration Desert Southwest Region
           - WACM - Western Area Power Administration Rocky Mountain Region
           - WAUW - Western Area Power Administration Upper Great Plains West
-      defaultValue: ISNE - ISO New England
+      defaultValue: NYIS - New York Independent System Operator
   - cellType: CODE
     cellId: a825e967-77fe-420f-89ba-edcc460e4999 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Fetch Energy Usage and Grid Mix from Selected BA
@@ -611,6 +611,11 @@ cells:
       source: |
         ## Who's Powering the Grid? 
         #### A Look at the Balancing Authorities Behind the Charge
+  - cellType: CODE
+    cellId: 14085ef7-f114-409b-8e3d-41d2af4f10da # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: null
+    config:
+      source: energy_consumed_locally_by_source_ba
   - cellType: CHARTV2
     cellId: c3aa554b-dd1f-4a8e-8ec4-a03a14d0d734 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Energy Consumed by Source BA
@@ -880,7 +885,10 @@ cells:
                 colorOrder: ascending
                 color:
                   type: series
-                  colorsBySeriesValues: {}
+                  colorsBySeriesValues:
+                    Renewable: "#54A24B"
+                    Fossil Fuels: "#B279A2"
+                    Nuclear/Other: "#BAB0AC"
                 opacity:
                   type: static
                   value: 1
@@ -979,7 +987,10 @@ cells:
                 color:
                   type: series
                   dataType: number
-                  colorsBySeriesValues: {}
+                  colorsBySeriesValues:
+                    Renewable: "#54A24B"
+                    Fossil Fuels: "#B279A2"
+                    Nuclear/Other: "#BAB0AC"
                 opacity:
                   type: static
                   value: 1
@@ -1256,7 +1267,10 @@ cells:
                   type: series
                   color: "#F58518"
                   dataType: number
-                  colorsBySeriesValues: {}
+                  colorsBySeriesValues:
+                    Average Usage (MWh): "#54A24B"
+                    Maximum Usage (MWh): "#4C78A8"
+                    Minimum Usage (MWh): "#72B7B2"
                 opacity:
                   type: static
                   value: 1
@@ -1285,12 +1299,12 @@ cells:
     cellId: 9b351146-2d80-41a3-a6c5-3bc3a5600482 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Subhead
     config:
-      source: "## To what extent are renewable energy sources meeting demand?"
+      source: "## How Close Are Renewables to Powering the Grid?"
   - cellType: CODE
     cellId: 08cfa04f-9035-49fd-938d-7d6bff009bae # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Summarize Electricity from Renewable as MWh and as Percentages
     config:
-      source: |-
+      source: |
         # Function to calculate % increase in renewable energy supply required to meet total usage
         def calc_more_renewable (tot, current):
             percent_more_renewable_needed = round((tot / current) * 100)
@@ -1299,9 +1313,9 @@ cells:
         # Function to filter the df to get the 'Renewable' row for specified date
         def get_renewable_usage_data(display_label, renewable_data):
             summary_row = [display_label, 
-                            round(renewable_data['subtotal_usage'].values[0], 2),
+                            round(renewable_data['subtotal_usage'].values[0]),
+                            round(renewable_data['total_usage_daily'].values[0]),
                             int(renewable_data['usage_percentage'].values[0]),
-                            round(renewable_data['total_usage_daily'].values[0], 2),
                             calc_more_renewable(renewable_data['total_usage_daily'].values[0], renewable_data['subtotal_usage'].values[0])
             ]
             return summary_row
@@ -1327,26 +1341,19 @@ cells:
         ]
 
         summary_df = pd.DataFrame([get_renewable_usage_data('Average Day', average_renewable_usage_df)], 
-            columns=['Type', 'Renewable Subtotal (MWh)', '% Renewables of Current Total',
-            'Total (MWh)', '% Increase in Renewables Needed'])
+            columns=['Type', 'Renewable Subtotal (MWh)', 'Total Usage (MWh)', '% Current Supply from Renewables',
+            '% Increase in Renewables Needed'])
 
-        summary_df.loc[len(summary_df)] = get_renewable_usage_data('Lowest Usage Day', min_filtered_usage_renewable) 
-        summary_df.loc[len(summary_df)] = get_renewable_usage_data('Highest Usage Day', max_filtered_usage_renewable) 
+        summary_df.loc[len(summary_df)] = get_renewable_usage_data('Lowest Demand Day', min_filtered_usage_renewable) 
+        summary_df.loc[len(summary_df)] = get_renewable_usage_data('Highest Demand Day', max_filtered_usage_renewable) 
 
         # Prepare for display average day current percentage and percentage increase needed
-        average_day_renewables_percentage = str(summary_df.loc[summary_df['Type'] == 'Average Day', '% Renewables of Current Total'].values[0]) + '%'
+        average_day_renewables_percentage = str(summary_df.loc[summary_df['Type'] == 'Average Day', '% Current Supply from Renewables'].values[0]) + '%'
         average_day_renewables_percentage_needed = str(summary_df.loc[summary_df['Type'] == 'Average Day', '% Increase in Renewables Needed'].values[0]) + '%'
-
         summary_df
-  - cellType: CODE
-    cellId: 0e1eda63-76de-4c21-a47a-82b6a9be1592 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Summary
-    config:
-      source: |
-        print(f'''{local_BA['descrip']} ({local_BA['code']})''')
   - cellType: METRIC
     cellId: e1b1eb23-2eca-4100-8ee4-3d605f897b7a # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Electricity Currently Provided  from Renewables on an  Average Day
+    cellLabel: Electricity Currently Supplied from Renewables (Average Day)
     config:
       title: " "
       valueVariableName: average_day_renewables_percentage
@@ -1373,7 +1380,7 @@ cells:
       outputResult: true
   - cellType: METRIC
     cellId: 4efa18d1-d0f2-404b-adc8-e75db888f095 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Increase Required to Renewable Supply  Meet Electricity Demand for an Average Day
+    cellLabel: Increase of Renewable Supply  Required to Meet Electricity Demand (Average Day)
     config:
       title: " "
       valueVariableName: average_day_renewables_percentage_needed
@@ -1399,10 +1406,26 @@ cells:
       comparisonResultVariable: comparison_value
       outputResult: true
   - cellType: CODE
-    cellId: 64ea8838-816a-4351-9ecd-91ec46fafb15 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Summary Renewable Usage Chart (MWh and %)
+    cellId: 0e1eda63-76de-4c21-a47a-82b6a9be1592 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Summary
     config:
-      source: summary_df
+      source: |
+        print(f'''BA: {local_BA['descrip']} ({local_BA['code']})''')
+  - cellType: CODE
+    cellId: 64ea8838-816a-4351-9ecd-91ec46fafb15 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Usage Summary for Renewables (MWh and %) 
+    config:
+      source: |-
+        # Add comma delimiters
+        summary_df['Renewable Subtotal (MWh)'] = summary_df['Renewable Subtotal (MWh)'].apply(lambda x: '{:,}'.format(x))
+        summary_df['Total Usage (MWh)'] = summary_df['Total Usage (MWh)'].apply(lambda x: '{:,}'.format(x))
+
+        # Apply left/center styling to columns 
+        summary_df_styled = summary_df.style.set_properties(subset=['Type'], **{'text-align': 'left'})
+        summary_df_styled = summary_df_styled.set_properties(subset=['Renewable Subtotal (MWh)', 'Total Usage (MWh)', '% Current Supply from Renewables', '% Increase in Renewables Needed'], 
+                          **{'text-align': 'center'})
+
+        summary_df_styled
   - cellType: MARKDOWN
     cellId: 93e3af2a-256f-442c-b1b3-bdc5546919e4 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Break
@@ -1549,7 +1572,7 @@ appLayout:
                   sharedFilterId: null
                   height: null
                   showLabel: false
-    - name: Power Sources
+    - name: Energy Sources
       rows:
         - columns:
             - start: 0
@@ -1629,6 +1652,17 @@ appLayout:
                   hideOutput: false
                   type: CELL
                   cellId: 9b351146-2d80-41a3-a6c5-3bc3a5600482
+                  sharedFilterId: null
+                  height: null
+                  showLabel: false
+        - columns:
+            - start: 0
+              end: 120
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 0e1eda63-76de-4c21-a47a-82b6a9be1592
                   sharedFilterId: null
                   height: null
                   showLabel: false
