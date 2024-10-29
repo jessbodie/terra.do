@@ -1,6 +1,6 @@
 schemaVersion: 3
 meta:
-  sourceVersionId: a1a4a02f-833c-4eda-9129-2d4c33d6b4b0 # DO NOT CHANGE - Hex uses this to match up project versions when reimporting the file
+  sourceVersionId: 9cf56eeb-a80f-4795-a5c7-4275a64ce7b4 # DO NOT CHANGE - Hex uses this to match up project versions when reimporting the file
   description: null
   projectId: f0ab67e7-2431-42fe-a98c-4805f6071d74 # DO NOT CHANGE - Unique ID of the project from which this file was generated
   title: DIY Rain Garden Calculator
@@ -157,7 +157,7 @@ cells:
 
             # Get historical precipitation data from Open-Meteo
             time_zone_ET = 'America%2FNew_York' # TODO, set up for UTC/time zones
-            API_URL = f'https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date={DATE_START}&end_date={DATE_END}&hourly=precipitation&daily=precipitation_sum&temperature_unit=fahrenheit&precipitation_unit=inch&timezone={time_zone_ET}'
+            API_URL = f'https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}&start_date={DATE_START}&end_date={DATE_END}&hourly=precipitation&daily=apparent_temperature_min,precipitation_sum&temperature_unit=fahrenheit&precipitation_unit=inch&timezone={time_zone_ET}'
 
             # if get_historical_weather_data:
             response = requests.get(API_URL)
@@ -173,26 +173,10 @@ cells:
 
             open_meteo_precip_df
   - cellType: CODE
-    cellId: 064ae300-e6e7-4126-9277-cba84b21e57a # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Get USDA Hardiness Zone
+    cellId: 70952782-8502-4f32-ac51-b8d56ab9d861 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Display Chart of Data from Open Meteo
     config:
-      source: |
-        # Get the USDA Hardiness Zone to inform plant selection
-        USDA_API_URL = f'https://usda-plant-hardiness-zones.p.rapidapi.com/zone/{zip_code}'
-
-        headers = {
-        	"x-rapidapi-key": "a8bcc5f75dmsh27b9907ff2b7d34p15e560jsn0fbb11bfd05b", # TODO
-        	"x-rapidapi-host": "usda-plant-hardiness-zones.p.rapidapi.com"
-        }
-
-        response = requests.get(USDA_API_URL, headers=headers)
-
-        if zip_code:
-            hardiness_zone = response.json()["zone"]
-            min_temp_range = response.json()["min_temp_range"]
-            # print(response.json())
-            print(f'Your USDA Plant Hardiness Zone is: {hardiness_zone}')
-            print(f'The associated minimum temperature range is: {min_temp_range}°')
+      source: open_meteo_precip_df
   - cellType: TEXT
     cellId: c95a1c69-dd73-45a1-af8d-079ea7eb3296 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: null
@@ -422,7 +406,7 @@ cells:
     cellId: 7ca620ff-9ff3-4ac4-96af-11dd6a5d3574 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Reduce and Flatten Daily Precipitation Data from Open-Meteo 
     config:
-      source: |
+      source: |+
         # Reduce and flatten Open-Meteo Daily Precipitation Data
         open_meteo_daily_df_initial = pd.DataFrame(open_meteo_precip_df['daily'])
 
@@ -433,6 +417,17 @@ cells:
 
         open_meteo_daily_df['time'] = pd.to_datetime(open_meteo_daily_df['time'])
         open_meteo_daily_df
+
+        # Prepare a data frame with Daily Minimum Apparent Temperature
+        open_meteo_daily_min_temp_df = pd.DataFrame({
+            'time': open_meteo_daily_df_initial['daily']['time'],
+            'apparent_temperature_min': open_meteo_daily_df_initial['daily']['apparent_temperature_min']
+        })
+
+        # Identify the minimum from all Daily Minimums
+        min_apparent_temp = open_meteo_daily_min_temp_df['apparent_temperature_min'].min()
+
+
   - cellType: CODE
     cellId: eeb2e356-e682-4cd2-9ccd-9bc3eb7dbc17 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: "Calculate: Total Days with Precipitation, Average Amount Precipitation, Average Number of Days with Precipitation per Year"
@@ -998,6 +993,18 @@ cells:
     config:
       source: "# RAIN GARDEN"
   - cellType: CODE
+    cellId: 5a52b082-6784-4e9b-baf6-504dea104948 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Restructure Size Factor Data Frame
+    config:
+      source: |-
+        # # Convert Size Factor DataFrame to long format
+        # rg_size_factors_long_df = rg_size_factors_df.copy()
+        # rg_size_factors_long_df = rg_size_factors_long_df.drop(columns=['Description', 'Typical Percolation Rate (inches/hour) (Low End)', 'Typical Percolation Rate (inches/hour) (High End)']).reset_index(drop=True)
+        # rg_size_factors_long_df = rg_size_factors_long_df.rename(columns={'3-5" deep': '3, 4, 5', '6-7" deep': '6, 7','8" deep': '8'})
+
+        # rg_size_factors_long_df = pd.melt(rg_size_factors_long_df, id_vars=['Type of Soil'], var_name='Depth Range', value_name='Size Factor')
+        # rg_size_factors_long_df
+  - cellType: CODE
     cellId: 1edc787f-12f8-4e50-83b9-4b3fc47f7322 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Rain Garden Size Factors Data - Less than 30 ft
     config:
@@ -1013,18 +1020,6 @@ cells:
         rg_size_factors = pd.read_csv(rg_size_factors_csv)
         rg_size_factors_df = pd.DataFrame(rg_size_factors)
         rg_size_factors_df
-  - cellType: CODE
-    cellId: 5a52b082-6784-4e9b-baf6-504dea104948 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Restructure Size Factor Data Frame
-    config:
-      source: |-
-        # Convert Size Factor DataFrame to long format
-        rg_size_factors_long_df = rg_size_factors_df.copy()
-        rg_size_factors_long_df = rg_size_factors_long_df.drop(columns=['Description', 'Typical Percolation Rate (inches/hour) (Low End)', 'Typical Percolation Rate (inches/hour) (High End)']).reset_index(drop=True)
-        rg_size_factors_long_df = rg_size_factors_long_df.rename(columns={'3-5" deep': '3, 4, 5', '6-7" deep': '6, 7','8" deep': '8'})
-
-        rg_size_factors_long_df = pd.melt(rg_size_factors_long_df, id_vars=['Type of Soil'], var_name='Depth Range', value_name='Size Factor')
-        rg_size_factors_long_df
   - cellType: CODE
     cellId: 2f6b7688-652b-40e8-a8b4-85a416389003 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Rain Garden Size Factors Data - More than 30 ft
@@ -1078,87 +1073,43 @@ cells:
         rg_dimensions_table_df = pd.DataFrame(rg_dimensions_table)
         rg_dimensions_table_df
   - cellType: CODE
-    cellId: b2202e8c-2f06-4bba-9a22-47dd9f687810 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Plants  Data
-    config:
-      source: |-
-        plants_csv = 'nyc_rain_garden_native_plants.csv'
-        plants_df = pd.read_csv(plants_csv)
-
-        plants_df
-  - cellType: CODE
-    cellId: ab564255-d0f8-4e4a-be9a-b83ebd843a48 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Display Plants in a DF with corresponding Common Name and Images
-    config:
-      source: |+
-        # Display the plant common names and images
-        # (Displaying as HTML because displaying inside dataframe was not working)
-        # (Images placed on external server) 
-
-        def display_plants_details (plants_display, sun=None, area=None, num=None, layout_display='area'): 
-
-            if (sun):
-                sun_display = sun.lower()
-
-            html_content = ''
-
-            if (area) and (num):
-                rg_area_display = f'The {layout_display} of your rain garden is about {area:.0f} square feet.'
-                rg_num_plants_display = f'Select {round(num)} plants that tolerate wet/damp soil and {sun_display} conditions such as:'
-                html_content += f'<p style="font-family: Arial; color: #fff;">{rg_area_display}</p>'
-                html_content += f'<p style="font-family: Arial; color: #fff;">{rg_num_plants_display}</p>'
-            
-            html_content += f'<ul style="list-style-type: none; padding: 0; margin: 0;">'
-
-            for _, row in plants_display.iterrows():
-                image_html = f'{row["plant_image_filename"]}'
-                text_html = f'{row["common_name"]}'
-                html_content += f'''
-                <li style="margin-bottom: 15px; display: flex; align-items: center;">
-                    <img src="https://panix.com/~ianr/jessbodie/{image_html}" width="120" style="margin-right: 15px;">
-                    <span style="font-family: Arial; color: #fff;">{text_html}</span>
-                </li>
-                '''
-
-            html_content += "</ul>"
-
-            return html_content
-
-  - cellType: CODE
-    cellId: 1f3b892a-fdee-4056-8ca5-555dede7e148 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: "Display for All Plants in Data Set: Common Names and Images"
+    cellId: 5c9cfe26-749e-4130-9723-842e3cfdd03b # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Ingest, Tidy, and Filter USDA Plants Data from CSV
     config:
       source: |
-        rg_plants_all = display_plants_details(plants_df)
+        # Ingest Raw USDA Plants data from CSV
+        raw_plants_data_csv = 'usda-plants 8-1-2023.csv'
+        raw_plants_data = pd.read_csv(raw_plants_data_csv)
 
-        # Display the HTML content for All Plants
-        display(HTML(rg_plants_all))
-  - cellType: CODE
-    cellId: 7506d9e1-b70d-4c20-8c20-f9f3519fa8b0 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Display all plants with corresponding Common Name and Images
-    config:
-      source: |-
-        # # Display the plant common names and images
-        # # (Displaying as HTML because displaying inside dataframe was not working)
-        # # Images placed on external server 
-        # html_content = """
-        # <ul style="list-style-type: none; padding: 0; margin: 0;">
-        # """
+        # Filter data to relevant columns and rename
+        select_plants_data = raw_plants_data[['Id', 'Symbol','ScientificName','CommonName','characteristics/0/Moisture Use', 'characteristics/0/Drought Tolerance', 
+        'characteristics/0/Temperature, Minimum (°F)',
+        'characteristics/0/Height at 20 Years, Maximum (feet)','characteristics/0/Low Growing Grass','characteristics/0/Shape and Orientation',
+        'characteristics/0/Precipitation, Maximum','characteristics/0/Precipitation, Minimum', 'characteristics/0/Shade Tolerance',
+        'characteristics/0/Bloom Period','characteristics/0/Flower Color','characteristics/0/Flower Conspicuous',
+        'characteristics/0/Adapted to Coarse Textured Soils','characteristics/0/Adapted to Fine Textured Soils','characteristics/0/Adapted to Medium Textured Soils'
+        ]]
 
-        # for _, row in plants_df.iterrows():
-        #     image_html = f'{row["plant_image_filename"]}'
-        #     text_html = f'{row["common_name"]}'
-        #     html_content += f'''
-        #     <li style="margin-bottom: 15px; display: flex; align-items: center;">
-        #         <img src="https://panix.com/~ianr/jessbodie/{image_html}" width="120" style="margin-right: 15px;">
-        #         <span style="font-family: Arial; color: #fff;">{text_html}</span>
-        #     </li>
-        #     '''
+        select_plants_data = select_plants_data.rename(columns={'characteristics/0/Moisture Use':'Moisture Use', 'characteristics/0/Drought Tolerance':'Drought Tolerance', 
+        'characteristics/0/Temperature, Minimum (°F)':'Temperature, Minimum (°F)','characteristics/0/Height at 20 Years, Maximum (feet)':'Height at 20 Years (feet)',
+        'characteristics/0/Low Growing Grass':'Low Growing Grass','characteristics/0/Shape and Orientation':'Shape and Orientation',
+        'characteristics/0/Precipitation, Maximum':'Precipitation, Maximum','characteristics/0/Precipitation, Minimum':'Precipitation, Minimum', 
+        'characteristics/0/Shade Tolerance':'Shade Tolerance','characteristics/0/Bloom Period':'Bloom Period','characteristics/0/Flower Color':'Flower Color',
+        'characteristics/0/Flower Conspicuous':'Flower Conspicuous','characteristics/0/Adapted to Coarse Textured Soils':'Coarse Textured Soils',
+        'characteristics/0/Adapted to Fine Textured Soils':'Fine Textured Soils','characteristics/0/Adapted to Medium Textured Soils':'Medium Textured Soils'
+        }) 
 
-        # html_content += "</ul>"
+        # Filter to show only High and Medium Moisture tolerance
+        select_plants_data = select_plants_data[(select_plants_data['Moisture Use'].isin(['High','Medium']))]
+        # Filter to show only High and Medium Drought tolerance
+        select_plants_data = select_plants_data[(select_plants_data['Drought Tolerance'].isin(['High','Medium']))]
 
-        # # # Display the HTML content
-        # display(HTML(html_content))
+        # Add in column with URL to USDA for each plant
+        plant_URL_prefix = 'https://plants.usda.gov/home/plantProfile?symbol='
+        select_plants_data['URL'] = plant_URL_prefix + select_plants_data['Symbol']
+
+        pd.set_option('display.max_colwidth', None)
+        select_plants_data
   - cellType: CODE
     cellId: 8ffab3d4-83a3-4e40-938b-93e591722bab # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Instructions
@@ -1212,7 +1163,7 @@ cells:
         valueOptions:
           - Full sun
           - Partial sun
-          - Mostly Shady
+          - Mostly shady
       defaultValue: Partial sun
   - cellType: TEXT
     cellId: bd0221b3-1e9e-4a50-8a3a-6a8be62a8157 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
@@ -1231,7 +1182,7 @@ cells:
       outputType: NUMBER
       options:
         increment: 1
-      defaultValue: "460"
+      defaultValue: "260"
   - cellType: INPUT
     cellId: 50a73c76-9805-4c3e-9dbe-741a39d558e5 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Size for storm water mitigation?
@@ -1259,7 +1210,7 @@ cells:
     cellId: f6e44f47-dd3f-4830-bf0b-49c3de2b5299 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Based on User Inputs, Plants Data, Sizing Factor Data, and Calculations, Prepare Dimensions and Plant Makeup  for a DIY Rain Garden
     config:
-      source: |
+      source: |+
         rg_instructions =[]
 
         # Get the Sizing Factor based on Soil Type
@@ -1354,12 +1305,9 @@ cells:
            - The greater dimension should be perpendicular to the predominant water flow.''')
             rg_instructions = np.append(rg_instructions, f'''   - Ideally, the rain garden would slope from the perimeter toward the basin by a ratio of 3 to 1. 
              (The length of the slope would be three times the vertical depth.)''')
-            rg_instructions = np.append(rg_instructions, f'\n   - Calculations are based on:')
-            rg_instructions = np.append(rg_instructions, f'      a sizing factor of {rg_sizing_factor}')
             if perc_rate:
-                rg_instructions = np.append(rg_instructions, f'      a drainage rate of {perc_rate} inches/hour')
-                rg_instructions = np.append(rg_instructions, f'''\nWith the drainage rate of {perc_rate:.2f} inches/hour, in the case of a precipitation event at the 99.9% percentile 
-                ({threshold_precip_rate:.2f} inches/hour), the {round(rg_area)} sq foot rain garden should drain in {round(rg_drains_per_hour)} hours''')
+                rg_instructions = np.append(rg_instructions, f'''\nWith the drainage rate of {perc_rate:.2f} inches/hour, in the case of a 99.9% percentile precipitation event of ({threshold_precip_rate:.2f} inches/hour), 
+        the {round(rg_area)} sq foot rain garden should drain in {round(rg_drains_per_hour)} hours.''')
 
 
             # PLANTS
@@ -1373,61 +1321,115 @@ cells:
             rg_outer_area = rg_area - rg_interior_area
             rg_plants_num_outer = rg_outer_area / rg_plant_area
 
-            # Categorize sun type based on user input
-            if input_sun == 'Full sun':
-                sun = 'SUN' 
-            elif input_sun == 'Mostly Shady':
-                sun = 'SHADE'
-            else: 
-                sun = 'MIXED'
 
-            # Prepare plants list based on rain garden zone and user-input sun tolerance 
-            def get_plants(zone, sun):
-                plant_recos = plants_df[(plants_df['garden_zone'].str.contains(zone) & \
-                plants_df['sun_tolerance'].str.contains(sun))]
+        plants_data_for_user = select_plants_data.copy()
+        # Filter plants based on location's minimum temperature
+        plants_data_for_user = plants_data_for_user[(plants_data_for_user['Temperature, Minimum (°F)'] > min_apparent_temp)]
+        rg_instruc_plants = f'\nThe following plants are suitable for rain gardens in your region and meet this criteria: Hardy to {min_apparent_temp} °F'
 
-                return plant_recos
+        # Filter plants based on user's input of soil type
+        if input_soil_type == 'Clayey':
+            plants_data_for_user = plants_data_for_user[(plants_data_for_user['Fine Textured Soils'] == 'Yes')]
+            rg_instruc_plants += f', compatible with {input_soil_type} soil types'
+        elif input_soil_type == 'Sandy':
+            plants_data_for_user = plants_data_for_user[(plants_data_for_user['Coarse Textured Soils'] == 'Yes')]
+            rg_instruc_plants += f', compatible with {input_soil_type} soil types'
 
-            plants_interior_df = get_plants('CENTER', sun)
-            plants_outer_df = get_plants('PERIMETER', sun)
+        # Filter plants based on user's input of shadiness
+        if input_sun == 'Full sun':
+            plants_data_for_user = plants_data_for_user[(plants_data_for_user['Shade Tolerance'] == 'Intolerant') | (plants_data_for_user['Shade Tolerance'].isnull())]
+        elif input_sun == 'Partial sun':
+            plants_data_for_user = plants_data_for_user[(plants_data_for_user['Shade Tolerance'] == 'Intermediate') | (plants_data_for_user['Shade Tolerance'].isnull())]
+        elif input_sun == 'Mostly shady':
+            plants_data_for_user = plants_data_for_user[(plants_data_for_user['Shade Tolerance'] == 'Tolerant') | (plants_data_for_user['Shade Tolerance'].isnull())]
 
-            
-            # Prepare plants lists to display
-            plants_interior_display = (' - ') + plants_interior_df['common_name'].astype(str)
-            plants_outer_display = (' - ') + plants_outer_df['common_name'].astype(str)
+        rg_instruc_plants += f' and {input_sun}.\n'
 
+        # If the area of the rain garden is less than 16 ft, do not show plants taller than 20 ft
+        if rg_area <= 16:
+            plants_data_for_user = plants_data_for_user[(plants_data_for_user['Height at 20 Years (feet)'] <= 20) | (plants_data_for_user['Height at 20 Years (feet)'].isnull())]
 
-
-            # Add specific area calculations to instructions
-            rg_instructions = np.append(rg_instructions, f'\nThe interior area of your rain garden should be about {rg_interior_area:.1f} square feet.')
-            rg_instructions = np.append(rg_instructions, f'''Select {round(rg_plants_num_interior)} plants that tolerate wet soil and {input_sun.lower()} conditions such as:''') 
-            rg_instructions = np.append(rg_instructions, plants_interior_display)
-
-            rg_instructions = np.append(rg_instructions, f'\nThe perimeter of your rain garden is about {rg_outer_area:.0f} square feet.')
-            rg_instructions = np.append(rg_instructions, f'''Select {round(rg_plants_num_outer)} plants that tolerate wet/damp soil and {input_sun.lower()} conditions such as:''') 
-            rg_instructions = np.append(rg_instructions, plants_outer_display)
+        # Add specific area calculations to instructions
+        rg_instructions = np.append(rg_instructions, rg_instruc_plants)
+        rg_instructions = np.append(rg_instructions, f'\nChoose {round(rg_plants_num_interior)} plants for the interior area of your rain garden (about {rg_interior_area:.1f} square feet). ')
+        rg_instructions = np.append(rg_instructions, f'Choose {round(rg_plants_num_outer)} plants for the rain garden perimeter (about {rg_outer_area:.0f} square feet).')
 
         print('\n'.join(rg_instructions))
 
-        # print(plants_interior_df)
+
+        # Filter plants for display, for interior and perimeter of rain garden
+        rg_plants_display = plants_data_for_user.copy()
+        rg_plants_display = rg_plants_display[['CommonName','Height at 20 Years (feet)','Bloom Period','Flower Color','Moisture Use','Drought Tolerance','URL']]
+
+        rg_plants_interior = rg_plants_display[(rg_plants_display['Moisture Use'] == 'High')]
+        rg_plants_perimeter = rg_plants_display[(rg_plants_display['Moisture Use'] == 'Medium')]
+
+
+
   - cellType: CODE
-    cellId: 2197a467-bc94-4133-ab32-3b2a211f4fab # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: "Display Summary of Rain Garden Plants: Interior"
+    cellId: 19d073f9-0ae7-4078-be0b-1d98035cf704 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Display Lists of Plants and Corresponding Details
     config:
-      source: |-
-        rg_display_inner = display_plants_details(plants_interior_df, input_sun, rg_interior_area, rg_plants_num_interior, 'interior')
+      source: |
+        # Display list of plants and associated details
+        def render_plants_HTML (plants_list_df, list_type): 
+
+            html_content = ''
+            
+            html_content += f'<h2 style="font-family: sans-serif;color:#CCC">{list_type}</h2>'
+            html_content += f'<ul style="padding: 0; margin: 0;">'
+
+            for _, row in plants_list_df.iterrows():
+                name_display = f'{row["CommonName"]}'
+                description_display = f'Drought Tolerance: {row["Drought Tolerance"]}'
+                description_display += f' ~ Bloom Period: {row["Bloom Period"]}'
+                if pd.notna(row["Flower Color"]):
+                    description_display += f' ~ Flower Color: {row["Flower Color"]}'
+                if pd.notna(row["Height at 20 Years (feet)"]) and row["Height at 20 Years (feet)"] > 0:
+                    description_display += f' ~ Height at Maturity: {row["Height at 20 Years (feet)"]} ft.'
+
+                html_content += f'''
+                <li style="margin-bottom: 15px; display: block; align-items: center; font-family: sans-serif;">
+                    <a href="{row["URL"]}" target="_blank" style="text-decoration: none">
+                        <p style="font-style:normal;font-weight:bold;color:#999">{name_display}</p>
+                    </a>
+                <p style="display:block; margin:1.5em; font-size: 80%; color:#999">{description_display}</p>
+                </li>
+                '''
+
+            html_content += "</ul>"
+
+            return html_content
+
+        rg_display_inner = render_plants_HTML(rg_plants_interior, 'Interior Plants')
+
+        rg_display_perimeter = render_plants_HTML(rg_plants_perimeter, 'Perimeter Plants')
 
         # Display the HTML content for Outer/Perimeter Area
         display(HTML(rg_display_inner))
+        display(HTML(rg_display_perimeter))
   - cellType: CODE
-    cellId: 4982bbcf-f14e-421b-9a8b-b1ce8f2ae36b # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Display Summary for Rain Garden Outer/Perimeter
+    cellId: 30f1e1a1-6712-4c89-a2af-d2fb9e4c7467 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: USDA Hardiness Zone
     config:
-      source: |
-        rg_display_outer = display_plants_details(plants_outer_df, input_sun, rg_outer_area, rg_plants_num_outer, 'perimeter')
+      source: |+
+        # # Get the USDA Hardiness Zone to inform plant selection
+        # USDA_API_URL = f'https://usda-plant-hardiness-zones.p.rapidapi.com/zone/{zip_code}'
 
-        # Display the HTML content for Outer/Perimeter Area
-        display(HTML(rg_display_outer))
+        # headers = {
+        # 	"x-rapidapi-key": "a8bcc5f75dmsh27b9907ff2b7d34p15e560jsn0fbb11bfd05b", # TODO
+        # 	"x-rapidapi-host": "usda-plant-hardiness-zones.p.rapidapi.com"
+        # }
+
+        # response = requests.get(USDA_API_URL, headers=headers)
+
+        # if zip_code:
+        #     hardiness_zone = response.json()["zone"]
+        #     min_temp_range = response.json()["min_temp_range"]
+        #     # print(response.json())
+        #     print(f'Your USDA Plant Hardiness Zone is: {hardiness_zone}')
+        #     print(f'The associated minimum temperature range is: {min_temp_range}°')
+
   - cellType: TEXT
     cellId: 7a97de73-70d8-4c97-abbc-bf1d81904b2f # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: null
@@ -1676,13 +1678,6 @@ cells:
       valueResultVariable: null
       comparisonResultVariable: null
       outputResult: false
-  - cellType: CODE
-    cellId: f1a988c9-0909-477d-a286-7376439ed0d4 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: TODO/IDEAS
-    config:
-      source: |
-        # TODO / IDEAS
-        # Plant list beyond NYC
   - cellType: MARKDOWN
     cellId: 3d5abe38-b7c5-418f-be3a-07e19fb7e30f # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Notes
@@ -1693,6 +1688,9 @@ cells:
         ## Notes & Credits
 
         ### New York City Plants
+         * Plants Data is from:
+         USDA, NRCS. 2024. The PLANTS Database (http://plants.usda.gov, 10/25/2024). National Plant Data Team, Greensboro, NC USA.
+         
          * The Lady Bird Johnson Wildflower Center 
             https://www.wildflower.org/plants/
 
@@ -2222,21 +2220,10 @@ appLayout:
                 - showSource: false
                   hideOutput: false
                   type: CELL
-                  cellId: 2197a467-bc94-4133-ab32-3b2a211f4fab
+                  cellId: 19d073f9-0ae7-4078-be0b-1d98035cf704
                   sharedFilterId: null
                   height: null
-                  showLabel: false
-        - columns:
-            - start: 0
-              end: 120
-              elements:
-                - showSource: false
-                  hideOutput: false
-                  type: CELL
-                  cellId: 4982bbcf-f14e-421b-9a8b-b1ce8f2ae36b
-                  sharedFilterId: null
-                  height: null
-                  showLabel: false
+                  showLabel: true
     - name: Notes
       rows:
         - columns:
