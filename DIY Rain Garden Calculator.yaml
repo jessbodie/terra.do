@@ -1,6 +1,6 @@
 schemaVersion: 3
 meta:
-  sourceVersionId: d517e6dc-0de2-4aff-928f-94c93ea5b37d # DO NOT CHANGE - Hex uses this to match up project versions when reimporting the file
+  sourceVersionId: 78ef87ca-40da-4784-ae5b-a56e8f6ac079 # DO NOT CHANGE - Hex uses this to match up project versions when reimporting the file
   description: null
   projectId: f0ab67e7-2431-42fe-a98c-4805f6071d74 # DO NOT CHANGE - Unique ID of the project from which this file was generated
   title: DIY Rain Garden Calculator
@@ -125,28 +125,40 @@ cells:
     cellLabel: Convert address to lattitude and longitude values
     config:
       source: |-
+        # Helper function to parse the zipcode 
+        def get_zip (address):
+            # Extract zip code from geopy_address
+            address_parts = address.split(', ')
+
+            for part in address_parts:
+                if part.isdigit() and len(part) == 5:  # Assuming US ZIP code format
+                    zip_code = part
+                    break
+            
+            # Warning messages regarding zip codes
+            if not(zip_code):
+                zip_code = None
+                print("U.S. Zip Code not found in the address.")
+
+            return zip_code
+
+
+
         # Put address lookup and data retreive behind button
         if address_update:
             # Convert address to lattitude and longitude values 
             loc = Nominatim(user_agent="Jess DIY Rain Garden")
-            getLoc = loc.geocode(input_address)
-            zip_code = None 
+            getLoc = loc.geocode(input_address) 
             if getLoc:
                 lat = getLoc.latitude
                 lon = getLoc.longitude
                 geopy_address = getLoc.address
-            
-                # Extract zip code from geopy_address
-                address_parts = geopy_address.split(', ')
 
-                for part in address_parts:
-                    if part.isdigit() and len(part) == 5:  # Assuming US ZIP code format
-                        zip_code = part
-                        break
-                
-                # Warning messages regarding zip codes
-                if not(zip_code):
-                    print("U.S. Zip Code not found in the address.")
+                # Save the address data to a file
+                with open('address.json', 'w') as file:
+                    json.dump(geopy_address, file, indent=0)
+
+                zip_code_us = get_zip(geopy_address)
 
             else:
                 print(f"Error: Please enter a new address and try again.")
@@ -162,7 +174,7 @@ cells:
             # if get_historical_weather_data:
             response = requests.get(API_URL)
             if response.status_code == 200:
-                print(f"{response.status_code}")
+                # print(f"{response.status_code}")
                 json_data = response.json()
                 open_meteo_precip_df = pd.DataFrame(json_data)
                     
@@ -170,11 +182,26 @@ cells:
                 with open('data.json', 'w') as file:
                     json.dump(json_data, file, indent=4)
             else:
-                print(f"Error: {response.status_code}")
+                print(f"Error from Open Meteo API: {response.status_code}")
 
-        elif not open_meteo_precip_df.empty:
-            print('Using saved location and precipitation data for:')
-            print(geopy_address)
+        else: 
+            # Handling for when the location is not refreshed, use saved location and open-meteo data
+            try:
+                # Open-Meteo data
+                with open('data.json', 'r') as file:
+                    json_data = json.load(file)
+                open_meteo_precip_df = pd.DataFrame(json_data)
+
+                # Address from Nominatim
+                with open('address.json', 'r') as address_file:
+                    geopy_address = json.load(address_file)
+
+                zip_code_us = get_zip(geopy_address)    
+
+                print('Using saved location and precipitation data for:')
+                print(geopy_address)
+            except: 
+                print('Input an address and click the Update button.')
   - cellType: CODE
     cellId: 70952782-8502-4f32-ac51-b8d56ab9d861 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Display Chart of Data from Open Meteo
@@ -997,18 +1024,6 @@ cells:
     config:
       source: "# RAIN GARDEN"
   - cellType: CODE
-    cellId: 5a52b082-6784-4e9b-baf6-504dea104948 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Restructure Size Factor Data Frame
-    config:
-      source: |-
-        # # Convert Size Factor DataFrame to long format
-        # rg_size_factors_long_df = rg_size_factors_df.copy()
-        # rg_size_factors_long_df = rg_size_factors_long_df.drop(columns=['Description', 'Typical Percolation Rate (inches/hour) (Low End)', 'Typical Percolation Rate (inches/hour) (High End)']).reset_index(drop=True)
-        # rg_size_factors_long_df = rg_size_factors_long_df.rename(columns={'3-5" deep': '3, 4, 5', '6-7" deep': '6, 7','8" deep': '8'})
-
-        # rg_size_factors_long_df = pd.melt(rg_size_factors_long_df, id_vars=['Type of Soil'], var_name='Depth Range', value_name='Size Factor')
-        # rg_size_factors_long_df
-  - cellType: CODE
     cellId: 1edc787f-12f8-4e50-83b9-4b3fc47f7322 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Rain Garden Size Factors Data - Less than 30 ft
     config:
@@ -1022,8 +1037,8 @@ cells:
 
         rg_size_factors_csv = 'RainGarden-SizeFactors.csv'
         rg_size_factors = pd.read_csv(rg_size_factors_csv)
-        rg_size_factors_df = pd.DataFrame(rg_size_factors)
-        rg_size_factors_df
+        rg_size_factors_less_30_df = pd.DataFrame(rg_size_factors)
+        rg_size_factors_less_30_df
   - cellType: CODE
     cellId: 2f6b7688-652b-40e8-a8b4-85a416389003 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Rain Garden Size Factors Data - More than 30 ft
@@ -1036,17 +1051,28 @@ cells:
         # https://doee.dc.gov/sites/default/files/dc/sites/ddoe/publication/attachments/RaingardenHow2HomeownerUWExtension.pdf
         # page 9
 
-        rg_size_factors_soil = {
+        rg_size_factors_more_30_soil = {
             'Soil Type': ['Sandy', 'Silty', 'Clayey'],
             'Sizing Factor': [0.03, 0.06, 0.10]
         }
 
-        rg_size_factors_soil
-        rg_size_factors_soil_df = pd.DataFrame(rg_size_factors_soil)
+        rg_size_factors_more_30_soil
+        rg_size_factors_more_30_df = pd.DataFrame(rg_size_factors_more_30_soil)
+        rg_size_factors_more_30_df
+  - cellType: CODE
+    cellId: 6ccbda2e-3841-4f6a-aa1e-77afe273d7b4 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Rain Garden Size Factors - Simplified and Merged
+    config:
+      source: |-
+        # Merge Sizing Factor Data to one DF
+        # Add Average of 6-8" since depth will be pulled from geometry table 
+        rg_size_factors_soil_df = rg_size_factors_more_30_df.copy()
+        rg_size_factors_soil_df = rg_size_factors_soil_df.rename(columns={'Sizing Factor': 'Sizing Factor (More than 30 ft)'})
+        rg_size_factors_soil_df['Sizing Factor (Less than 30 ft)'] = round(((rg_size_factors_less_30_df['6-7" deep'] + rg_size_factors_less_30_df['8" deep'])/2),2)
         rg_size_factors_soil_df
   - cellType: CODE
     cellId: 8b0115e5-7ee0-477f-8b49-1dbd64c5de34 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Look Up Table for Infiltration-Rate Based Sizing Factor
+    cellLabel: Rain Garden Size Factors - Based on Infiltration Rate
     config:
       source: |-
         # Rain Garden Sizing Factors based on Infiltration Rate 
@@ -1062,7 +1088,7 @@ cells:
         rg_size_factors_rate_df
   - cellType: CODE
     cellId: 8e34fbae-c06d-4900-bb92-9317a90edebf # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Look Up Table for Rain Garden Geometry
+    cellLabel: Rain Garden Depth Look Up Table (Geometry-based)
     config:
       source: |-
         # Minimum Rain Garden Geometry  
@@ -1153,7 +1179,7 @@ cells:
           - Silty
           - Loamy
           - Clayey
-      defaultValue: Clayey
+      defaultValue: I'm not sure
   - cellType: INPUT
     cellId: 03c93d46-e397-4171-94ad-c35e586c8821 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: "Drainage rate , if known (inches/hour):"
@@ -1175,7 +1201,7 @@ cells:
           - Full sun
           - Partial sun
           - Mostly shady
-      defaultValue: Partial sun
+      defaultValue: Full sun
   - cellType: TEXT
     cellId: bd0221b3-1e9e-4a50-8a3a-6a8be62a8157 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: null
@@ -1193,7 +1219,20 @@ cells:
       outputType: NUMBER
       options:
         increment: 1
-      defaultValue: "500"
+      defaultValue: "360"
+  - cellType: INPUT
+    cellId: 5420d07b-7103-4d71-89ca-6527becacb54 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: "Distance from foundation:"
+    config:
+      inputType: DROPDOWN
+      name: input_distance
+      outputType: STRING
+      options:
+        valueOptions:
+          - 10-30 ft
+          - Less than 10 ft
+          - More than 30 ft
+      defaultValue: 10-30 ft
   - cellType: INPUT
     cellId: 50a73c76-9805-4c3e-9dbe-741a39d558e5 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Size for storm water mitigation?
@@ -1226,9 +1265,9 @@ cells:
     cellId: 30f1e1a1-6712-4c89-a2af-d2fb9e4c7467 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: USDA Hardiness Zone
     config:
-      source: |+
+      source: |-
         # Get the USDA Hardiness Zone to inform plant selection
-        USDA_API_URL = f'https://usda-plant-hardiness-zones.p.rapidapi.com/zone/{zip_code}'
+        USDA_API_URL = f'https://usda-plant-hardiness-zones.p.rapidapi.com/zone/{zip_code_us}'
 
         headers = {
         	"x-rapidapi-key": "a8bcc5f75dmsh27b9907ff2b7d34p15e560jsn0fbb11bfd05b", # TODO
@@ -1237,13 +1276,23 @@ cells:
 
         response = requests.get(USDA_API_URL, headers=headers)
 
-        if zip_code:
-            hardiness_zone = response.json()["zone"]
-            min_temp_range = response.json()["min_temp_range"]
-            # print(response.json())
-            print(f'Your USDA Plant Hardiness Zone is: {hardiness_zone}')
-            print(f'The associated minimum temperature range is: {min_temp_range}°')
+        if response.status_code == 200:
+            if zip_code_us:
+                hardiness_zone = response.json()["zone"]
+                min_temp_range = response.json()["min_temp_range"]
+                # print(response.json())
+                print(f'Your USDA Plant Hardiness Zone is: {hardiness_zone}')
+                print(f'The associated minimum temperature range is: {min_temp_range}°')
 
+        else:
+            print(f"Error from USDA Hardiness Zone API: {response.status_code}")
+  - cellType: CODE
+    cellId: 12799ae2-04d4-4afb-9720-c7e19d7d3960 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
+    cellLabel: Initiate Rain Garden Instructions
+    config:
+      source: |-
+        # Initiate the Rain Garden Instruction Set
+        rg_instructions = []
   - cellType: CODE
     cellId: f6e44f47-dd3f-4830-bf0b-49c3de2b5299 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Based on User Inputs, Plants Data, Sizing Factor Data, and Calculations, Prepare Dimensions and Plant Makeup  for a DIY Rain Garden
@@ -1252,10 +1301,14 @@ cells:
         # Prepare the instructions for designing the rain garden
 
         # Get the Sizing Factor based on Soil Type
-        def getSoilSizingFactor (soiltype):
+        def getSoilSizingFactor (soiltype, distance):
             rg_size_factors_soil_match = rg_size_factors_soil_df[(rg_size_factors_soil_df['Soil Type'] == soiltype)]
             if not rg_size_factors_soil_match.empty:
-                sizing_factor = rg_size_factors_soil_match['Sizing Factor'].values[0]
+                if distance == 'More than 30 ft':
+                    sizing_factor = rg_size_factors_soil_match['Sizing Factor (More than 30 ft)'].values[0]
+                else:     
+                    sizing_factor = rg_size_factors_soil_match['Sizing Factor (Less than 30 ft)'].values[0]
+            print(f'Soil-based sizing factor: {sizing_factor}')
             return sizing_factor
 
         # Get the Sizing Factor based on Drainage Rate
@@ -1263,6 +1316,7 @@ cells:
             rg_size_factors_rate_match = rg_size_factors_rate_df[(rg_size_factors_rate_df['Min Infiltration Rate'] <= rate) & (rg_size_factors_rate_df['Max Infiltration Rate'] >= rate)]
             if not rg_size_factors_rate_match.empty:
                 sizing_factor_rate = rg_size_factors_rate_match['Sizing Factor'].values[0]
+                print(f'Drainage rate-based sizing factor: {sizing_factor_rate}')
                 return sizing_factor_rate
             else: 
                 return None
@@ -1283,10 +1337,11 @@ cells:
 
         # When the Calculate button is pressed:
         if input_calculate:
-            rg_instructions =[]
-
             # Initiate array to hold all instructions for Rain Garden
-            rg_instructions =['Rain gardens should be located at least 10 feet from any foundations and in an area that is not in conflict with any underground utilities.\n']
+            rg_instructions =['First, be sure the planned rain garden location is not in conflict with any underground utilities.']
+
+            if input_distance == 'Less than 10 ft':
+                rg_instructions =np.append(rg_instructions, f'''Rain gardens should be located at least 10 feet from the foundation. Reconsider your planned location.\n''')
 
             # Check if basic conditions exist for a Rain Garden, add to instructions
             if input_slope is not True:
@@ -1305,15 +1360,17 @@ cells:
                     if rg_sizing_factor == None:
                         perc_rate = None
                         rg_instructions = np.append(rg_instructions, f'The input Drainage Rate was not understood. A default mid-range value for Silty soil was used for these results.\n')
-                        rg_sizing_factor = getSoilSizingFactor('Silty')
+                        rg_sizing_factor = getSoilSizingFactor('Silty', input_distance)
 
             # If drainage rate not known or valid:
             except ValueError:
+                perc_rate = None
+
                 # If user inputs Clayey, add instructions since clayey soil needs a drainage rate above 0.5"
                 if input_soil_type == 'Clayey':
                     soil_type_lookup = 'Clayey'
-                    rg_instructions = np.append(rg_instructions, f'''Since your soil is {input_soil_type}, test your soil drainage rate. 
-                    It must drain at least 0.5 inches per hour. If slower, add soil amendments until reaching this minimum rate.\n''')
+                    rg_instructions = np.append(rg_instructions, f'''Since your soil is {input_soil_type}, test that your soil drainage rate is at least 0.5 inches per hour. 
+                    If slower, add soil amendments until reaching this minimum rate.\n''')
                 elif (input_soil_type == 'Sandy'):
                     soil_type_lookup = 'Sandy'
                 # If soil type is Loamy or Unknown, change to Silty because
@@ -1321,7 +1378,7 @@ cells:
                 elif (input_soil_type == 'Loamy') or (input_soil_type == 'Silty') or (input_soil_type == 'I\'m not sure'):
                     soil_type_lookup = 'Silty'
                 # Look up the sizing factor based on soil type
-                rg_sizing_factor = getSoilSizingFactor(soil_type_lookup)
+                rg_sizing_factor = getSoilSizingFactor(soil_type_lookup, input_distance)
 
 
             # RAIN GARDEN DIMENSIONS 
@@ -1334,15 +1391,16 @@ cells:
             rg_suggested_lw = math.sqrt(rg_area)
             # Look up depth based on Rain Garden Geometry Table
             rg_suggested_depth = getDepth(rg_area)
+
             if perc_rate:
-               rg_drains_per_hour = ((input_catchment_SA / rg_area) * threshold_precip_rate) / perc_rate
+               rg_drains_per_hour = round((((input_catchment_SA / rg_area) * threshold_precip_rate) / perc_rate),1)
 
             # ADD TO INSTRUCTIONS  
-            rg_instructions = np.append(rg_instructions, f'Recommended area: {round(rg_area)} square feet')
-            rg_instructions = np.append(rg_instructions, f'''Recommended depth: {round(rg_suggested_depth)} inches''')
+            rg_instructions = np.append(rg_instructions, f'Recommended area: about {round(rg_area)} square feet')
             rg_instructions = np.append(rg_instructions, f'''Dimensions for an elongated garden: about {round(rg_suggested_width)} feet by {round(rg_suggested_length)} feet<br>
         The greater dimension should be perpendicular to the predominant water flow.''')
             rg_instructions = np.append(rg_instructions, f'''Dimensions for a balanced garden: about {round(rg_suggested_lw)} feet by {round(rg_suggested_lw)} feet''')
+            rg_instructions = np.append(rg_instructions, f'''Recommended depth: {round(rg_suggested_depth)} inches''')
             rg_instructions = np.append(rg_instructions, f'''The slope of the rain garden from the perimeter to the center should be at a ratio of 3 to 1.<br>
         (The length of the slope would be three times the vertical depth.)''')
 
@@ -1379,15 +1437,20 @@ cells:
                 plants_data_for_user = plants_data_for_user[(plants_data_for_user['Shade Tolerance'] == 'Tolerant') | (plants_data_for_user['Shade Tolerance'].isnull())]
 
             rg_instruc_plants += f'{input_sun.lower()}, '
-            rg_instruc_plants += f'and a hardiness temperature {min_apparent_temp} °F.'
+            rg_instruc_plants += f'and based on your location, a hardiness temperature minimum of {min_apparent_temp} °F.'
 
             # Add specific area calculations to instructions
             rg_instructions = np.append(rg_instructions, f'''From the lists below, choose {round(rg_plants_num_interior)} plants for the center of your rain garden 
             (about {rg_interior_area:.1f} square feet) and {round(rg_plants_num_outer)} plants for the rain garden perimeter (about {rg_outer_area:.0f} square feet).''')
             rg_instructions = np.append(rg_instructions, rg_instruc_plants)
 
+        # Handle for rerunning code block without the calculate button  
         elif len(rg_instructions) > 0:
             print('Reusing saved instructions from prior inputs.')
+            # Coerce input rate to a float, otherwise use soil type
+            perc_rate = float(input_perc_rate)
+            print(rg_sizing_factor)
+
 
         else:
             print('Input values and then click the Calculate button.')
@@ -1399,7 +1462,7 @@ cells:
         if perc_rate:
             rg_notes = np.append(rg_notes, f'''A common concern about rain gardens is a potential link with mosquitoes. However, rain gardens are meant to drain, not hold standing water.
         With the drainage rate of {perc_rate:.2f} inches/hour, in the case of a one-hour 99.9% percentile precipitation event of ({threshold_precip_rate:.2f} inches/hour), 
-        the {round(rg_area)} sq foot rain garden should drain in {round(rg_drains_per_hour)} hours.''')
+        the {round(rg_area)} sq foot rain garden should drain in {rg_drains_per_hour} hrs.''')
 
         # If the area of the rain garden is less than 16 ft, do not show plants taller than 20 ft
         if rg_area <= 16:
@@ -1469,7 +1532,7 @@ cells:
             return html_content
 
         rg_display_instructions = render_instructions_HTML(rg_instructions, 'Rain Garden Design Recommendations')
-        rg_display_inner = render_plants_HTML(rg_plants_interior, 'Plants for the Center')
+        rg_display_inner = render_plants_HTML(rg_plants_interior, 'Center Area Plants')
         rg_display_perimeter = render_plants_HTML(rg_plants_perimeter, 'Perimeter Plants')
         rg_display_notes = render_instructions_HTML(rg_notes, 'Notes')
 
@@ -1604,9 +1667,9 @@ cells:
       outputResult: false
   - cellType: METRIC
     cellId: 88a27d84-b17a-4b52-8883-ec5928403e8f # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: "# of Plants in Interior"
+    cellLabel: Plant in Center
     config:
-      title: interior plants
+      title: " plants"
       valueVariableName: rg_plants_num_interior
       showComparison: false
       comparisonType: VALUE
@@ -1658,9 +1721,9 @@ cells:
       outputResult: false
   - cellType: METRIC
     cellId: d5cbda38-5c6d-450d-b0d9-94c1cd8908f1 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: "# of Plants on Perimeter"
+    cellLabel: Plant around Perimeter
     config:
-      title: perimeter plants
+      title: plants
       valueVariableName: rg_plants_num_outer
       showComparison: false
       comparisonType: VALUE
@@ -1725,41 +1788,31 @@ cells:
     cellId: 3d5abe38-b7c5-418f-be3a-07e19fb7e30f # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Notes
     config:
-      source: |-
+      source: |
         <br>
 
         ## Notes & Credits
 
-        ### New York City Plants
-         * Plants Data is from:
-         USDA, NRCS. 2024. The PLANTS Database (http://plants.usda.gov, 10/25/2024). National Plant Data Team, Greensboro, NC USA.
+        ### Data Sources & APIs
+         * USDA Plants Database 
+           USDA, NRCS. 2024. The PLANTS Database (http://plants.usda.gov, 10/25/2024). National Plant Data Team, Greensboro, NC USA.
+           <br>Also: https://plants.usda.gov/assets/docs/PLANTS_Help_Document.pdf 
          
-         * The Lady Bird Johnson Wildflower Center 
-            https://www.wildflower.org/plants/
-
-         * The New York Flora Atlas 
-            https://newyork.plantatlas.usf.edu/
-
          * USDA Hardiness Zone Map
             https://planthardiness.ars.usda.gov/
-
-        ### Precipitation
 
          * Weather Data from Open-Meteo
             https://open-meteo.com/en/docs
             * Note: Total precipitation (rain, showers, snow) sum of the preceding hour. Data is stored with a 0.1 mm precision. 
               If precipitation data is summed up to monthly sums, there might be small inconsistencies with the total precipitation amount.
 
-        ### Rain Gardens
+        ### Primary Sources
 
          * Using the Rain Garden Size Factors from Washington, D.C. Department of Energy & Environment 
             https://doee.dc.gov/sites/default/files/dc/sites/ddoe/publication/attachments/RaingardenHow2HomeownerUWExtension.pdf (page 9)
 
-         * Build a Rain Garden from Five Counties Salmonid Conservatin Program
+         * Build a Rain Garden from Five Counties Salmonid Conservation Program
             https://www.5counties.org/docs/lu_planning/04_rain_garden.pdf   
-
-         * Harvest Rain from Water Wise from University of Arizona Cooperative Extension
-            https://waterwise.arizona.edu/ways-save-water/harvest-rain
 
          * Soak Up the Rain: What's The Problem
             https://www.epa.gov/soakuptherain/soak-rain-whats-problem
@@ -1768,17 +1821,23 @@ cells:
            https://seagrant.oregonstate.edu/sites/seagrant.oregonstate.edu/files/h10001-lo.pdf
 
          * Inches to Gallons Calculator
-            https://www.inchcalculator.com/convert/cubic-inch-to-gallon/
+        https://www.inchcalculator.com/convert/cubic-inch-to-gallon/
 
 
         ### Secondary Sources
-        * Missouri Botanical Garden
+         * Harvest Rain from Water Wise from University of Arizona Cooperative Extension
+            https://waterwise.arizona.edu/ways-save-water/harvest-rain
+
+         * Missouri Botanical Garden
         https://www.missouribotanicalgarden.org/sustainability/sustainability/sustainable-solutions-for-you/rainscaping-guide/design-and-build-a-rain-garden/determine-rain-garden-size-and-depth
-        * Beckley Sanitary Board
+
+         * Beckley Sanitary Board
         https://beckleysanitaryboard.org/build-your-own-rain-garden/
-        * Alabama A&M Extension School
+
+         * Alabama A&M Extension School
         https://www.aces.edu/blog/topics/fish-water/step-4-determine-the-size-and-depth-of-the-rain-garden/#:~:text=For%20quick%20and%20simple%20calculations,be%20treated%20divided%20by%2020.
-        * New York City Drainage System and Floding
+
+         * New York City Drainage System and Floding
         https://www.nytimes.com/2023/09/29/nyregion/nyc-sewer-system-infrastructure.html?smid=url-share
 appLayout:
   visibleMetadataFields:
@@ -2133,16 +2192,16 @@ appLayout:
                   showLabel: true
         - columns:
             - start: 0
-              end: 25
+              end: 30
               elements:
                 - showSource: false
                   hideOutput: false
                   type: CELL
-                  cellId: 32d25a0f-6530-4992-9699-c2a80579fb79
+                  cellId: 5420d07b-7103-4d71-89ca-6527becacb54
                   sharedFilterId: null
                   height: null
                   showLabel: true
-            - start: 25
+            - start: 30
               end: 55
               elements:
                 - showSource: false
@@ -2158,23 +2217,23 @@ appLayout:
                 - showSource: false
                   hideOutput: false
                   type: CELL
-                  cellId: 03c93d46-e397-4171-94ad-c35e586c8821
+                  cellId: adf64772-fb3a-47d5-b13c-22cefd39baab
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+            - start: 85
+              end: 110
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 32d25a0f-6530-4992-9699-c2a80579fb79
                   sharedFilterId: null
                   height: null
                   showLabel: true
         - columns:
             - start: 0
-              end: 25
-              elements:
-                - showSource: false
-                  hideOutput: false
-                  type: CELL
-                  cellId: 50a73c76-9805-4c3e-9dbe-741a39d558e5
-                  sharedFilterId: null
-                  height: null
-                  showLabel: true
-            - start: 25
-              end: 55
+              end: 30
               elements:
                 - showSource: false
                   hideOutput: false
@@ -2183,19 +2242,28 @@ appLayout:
                   sharedFilterId: null
                   height: null
                   showLabel: true
-            - start: 55
-              end: 85
+            - start: 30
+              end: 55
               elements:
                 - showSource: false
                   hideOutput: false
                   type: CELL
-                  cellId: adf64772-fb3a-47d5-b13c-22cefd39baab
+                  cellId: 03c93d46-e397-4171-94ad-c35e586c8821
                   sharedFilterId: null
                   height: null
                   showLabel: true
-        - columns:
-            - start: 35
-              end: 70
+            - start: 55
+              end: 80
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 50a73c76-9805-4c3e-9dbe-741a39d558e5
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+            - start: 80
+              end: 115
               elements:
                 - showSource: false
                   hideOutput: false
@@ -2227,7 +2295,7 @@ appLayout:
                   height: null
                   showLabel: true
             - start: 25
-              end: 45
+              end: 50
               elements:
                 - showSource: false
                   hideOutput: false
@@ -2235,9 +2303,9 @@ appLayout:
                   cellId: 88a27d84-b17a-4b52-8883-ec5928403e8f
                   sharedFilterId: null
                   height: 150
-                  showLabel: false
-            - start: 45
-              end: 65
+                  showLabel: true
+            - start: 50
+              end: 75
               elements:
                 - showSource: false
                   hideOutput: false
@@ -2245,8 +2313,8 @@ appLayout:
                   cellId: d5cbda38-5c6d-450d-b0d9-94c1cd8908f1
                   sharedFilterId: null
                   height: 150
-                  showLabel: false
-            - start: 80
+                  showLabel: true
+            - start: 75
               end: 120
               elements:
                 - showSource: false
