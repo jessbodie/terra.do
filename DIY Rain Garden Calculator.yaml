@@ -1,6 +1,6 @@
 schemaVersion: 3
 meta:
-  sourceVersionId: 78ef87ca-40da-4784-ae5b-a56e8f6ac079 # DO NOT CHANGE - Hex uses this to match up project versions when reimporting the file
+  sourceVersionId: 309d75bb-cea0-4fdd-a8d3-49c96db89ca1 # DO NOT CHANGE - Hex uses this to match up project versions when reimporting the file
   description: null
   projectId: f0ab67e7-2431-42fe-a98c-4805f6071d74 # DO NOT CHANGE - Unique ID of the project from which this file was generated
   title: DIY Rain Garden Calculator
@@ -1153,7 +1153,9 @@ cells:
     config:
       source: |
         print(f'''Select from these menus for customized instructions on designing and building a rain garden at the location:
-        {geopy_address}''')
+
+        {geopy_address}
+        ''')
   - cellType: INPUT
     cellId: 32d25a0f-6530-4992-9699-c2a80579fb79 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Slope is flat or less than 12%?
@@ -1187,8 +1189,9 @@ cells:
       inputType: TEXT_INPUT
       name: input_perc_rate
       outputType: STRING
-      options: null
-      defaultValue: "2"
+      options:
+        multiline: false
+      defaultValue: ""
   - cellType: INPUT
     cellId: adf64772-fb3a-47d5-b13c-22cefd39baab # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: "Sun tolerance:"
@@ -1201,18 +1204,10 @@ cells:
           - Full sun
           - Partial sun
           - Mostly shady
-      defaultValue: Full sun
-  - cellType: TEXT
-    cellId: bd0221b3-1e9e-4a50-8a3a-6a8be62a8157 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: null
-    config:
-      richText:
-        - type: paragraph
-          children:
-            - text: "Tell us about your plans so far:"
+      defaultValue: Partial sun
   - cellType: INPUT
     cellId: d5f4ba8e-640f-46d5-aab6-74af71d2f1a9 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: "Catchment surface area (square feet):"
+    cellLabel: "Drainage area (sq ft):"
     config:
       inputType: NUMERIC_INPUT
       name: input_catchment_SA
@@ -1232,21 +1227,10 @@ cells:
           - 10-30 ft
           - Less than 10 ft
           - More than 30 ft
-      defaultValue: 10-30 ft
-  - cellType: INPUT
-    cellId: 50a73c76-9805-4c3e-9dbe-741a39d558e5 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Size for storm water mitigation?
-    config:
-      inputType: CHECKBOX
-      name: input_storms
-      outputType: BOOLEAN
-      options:
-        style: checkbox
-        text: Yes
-      defaultValue: true
+      defaultValue: More than 30 ft
   - cellType: INPUT
     cellId: ec0b9187-6428-4313-8f36-4fc1de34614c # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Calculate My Rain Garden
+    cellLabel: " "
     config:
       inputType: BUTTON
       name: input_calculate
@@ -1298,7 +1282,7 @@ cells:
     cellLabel: Based on User Inputs, Plants Data, Sizing Factor Data, and Calculations, Prepare Dimensions and Plant Makeup  for a DIY Rain Garden
     config:
       source: |+
-        # Prepare the instructions for designing the rain garden
+        # Prepare the instructions and calculations for designing the rain garden
 
         # Get the Sizing Factor based on Soil Type
         def getSoilSizingFactor (soiltype, distance):
@@ -1334,6 +1318,18 @@ cells:
             ponding_depth = closest_row['Ponding Depth (in)']
             return ponding_depth
 
+        # Convert input percolation rate to acceptable float
+        def getPercRate (perc_input):
+            if perc_input:
+                # Handling for input needs to be string (in Hex) in order to accept decimals
+                numeric_part = ''.join(char for char in perc_input if char.isdigit() or char == '.')
+                perc_rate = float(numeric_part)
+                # Error handling for unlikely percolation rate
+                if perc_rate > 18:
+                    perc_rate = 18
+                return perc_rate
+            else:
+                return None
 
         # When the Calculate button is pressed:
         if input_calculate:
@@ -1347,25 +1343,11 @@ cells:
             if input_slope is not True:
                 rg_instructions = np.append(rg_instructions, 'Rain gardens should only be planted in locations where the incline is less than 12%. Look for another location or consider how to regrade the space.\n')
 
-            try:
-                # Coerce input rate to a float, otherwise use soil type
-                perc_rate = float(input_perc_rate)
+            # Coerce input rate to a float, otherwise use soil type
+            perc_rate = getPercRate(input_perc_rate)
 
-                # If drainage rate is below .05", a rain garden is not recommended
-                if perc_rate > 0 and perc_rate < 0.5:
-                    rg_instructions = np.append(rg_instructions, f'''Since the drainage rate is less than 0.5", a rain garden is not recommended. Consider other locations, or amend the soil to acheive a drainage rate of 0.5" or higher.\n''')
-                # Match the drainage rate with values in drainage rate sizing table
-                else: 
-                    rg_sizing_factor = getRateSizingFactor(perc_rate)
-                    if rg_sizing_factor == None:
-                        perc_rate = None
-                        rg_instructions = np.append(rg_instructions, f'The input Drainage Rate was not understood. A default mid-range value for Silty soil was used for these results.\n')
-                        rg_sizing_factor = getSoilSizingFactor('Silty', input_distance)
-
-            # If drainage rate not known or valid:
-            except ValueError:
-                perc_rate = None
-
+            # If drainage rate not known or valid, use soil type for sizing factor:
+            if perc_rate is None: 
                 # If user inputs Clayey, add instructions since clayey soil needs a drainage rate above 0.5"
                 if input_soil_type == 'Clayey':
                     soil_type_lookup = 'Clayey'
@@ -1380,6 +1362,19 @@ cells:
                 # Look up the sizing factor based on soil type
                 rg_sizing_factor = getSoilSizingFactor(soil_type_lookup, input_distance)
 
+            # If drainage rate is below .05", a rain garden is not recommended, use soil type
+            elif perc_rate is not None and perc_rate > 0 and perc_rate < 0.5:
+                rg_instructions = np.append(rg_instructions, f'''Since the drainage rate is less than 0.5", a rain garden is not recommended. Consider other locations, or amend the soil to acheive a drainage rate of 0.5" or higher.\n''')
+
+            # Match the drainage rate with values in drainage rate sizing table
+            elif perc_rate >= 0.5: 
+                rg_sizing_factor = getRateSizingFactor(perc_rate)
+                if rg_sizing_factor == None:
+                    perc_rate = None
+                    rg_instructions = np.append(rg_instructions, f'The input Drainage Rate was not understood. A default mid-range value for Silty soil was used for these results.\n')
+                    rg_sizing_factor = getSoilSizingFactor('Silty', input_distance)
+
+         
 
             # RAIN GARDEN DIMENSIONS 
             # Rain Garden Area = Catchment Surface Area * Size Factor
@@ -1439,42 +1434,56 @@ cells:
             rg_instruc_plants += f'{input_sun.lower()}, '
             rg_instruc_plants += f'and based on your location, a hardiness temperature minimum of {min_apparent_temp} °F.'
 
+
+            # Update List of Plants to Display based on area
+            # If the area of the rain garden is less than 16 ft, do not show plants taller than 20 ft
+            if rg_area <= 16:
+                plants_data_for_user = plants_data_for_user[(plants_data_for_user['Height at 20 Years (feet)'] <= 20) | (plants_data_for_user['Height at 20 Years (feet)'].isnull())]
+
+            # Filter plants for display, for interior and perimeter of rain garden
+            rg_plants_display = plants_data_for_user.copy()
+            rg_plants_display = rg_plants_display[['CommonName','Height at 20 Years (feet)','Bloom Period','Flower Color','Moisture Use','Drought Tolerance','URL']]
+
+            rg_plants_interior = rg_plants_display[(rg_plants_display['Moisture Use'] == 'High')]
+            rg_plants_perimeter = rg_plants_display[(rg_plants_display['Moisture Use'] == 'Medium')]
+
+
             # Add specific area calculations to instructions
             rg_instructions = np.append(rg_instructions, f'''From the lists below, choose {round(rg_plants_num_interior)} plants for the center of your rain garden 
             (about {rg_interior_area:.1f} square feet) and {round(rg_plants_num_outer)} plants for the rain garden perimeter (about {rg_outer_area:.0f} square feet).''')
             rg_instructions = np.append(rg_instructions, rg_instruc_plants)
 
+            # Prepare Notes, to apppear after list of plants
+            rg_notes = []
+            if {hardiness_zone}:
+                rg_notes = np.append(rg_notes, f'''Verify selected plants are all labelled as compatible with USDA Hardiness Zone {hardiness_zone}''')
+
+            if perc_rate:
+                rg_notes = np.append(rg_notes, f'''A common concern about rain gardens is a potential link with mosquitoes. However, rain gardens are meant to drain, not hold standing water.
+            With the drainage rate of {perc_rate:.2f} inches/hour, in the case of a one-hour 99.9% percentile precipitation event of ({threshold_precip_rate:.2f} inches/hour), 
+            the {round(rg_area)} sq foot rain garden should drain in {rg_drains_per_hour} hrs.''')
+                rg_notes = np.append(rg_notes, f'''The sizing factor for your rain garden is {rg_sizing_factor}.  This is based on the input distance from the foundation ({input_distance}) and 
+                the input percolation rate of {perc_rate:.2f} inches/hour.''')
+            else: 
+                rg_notes = np.append(rg_notes, f'''The sizing factor for your rain garden is {rg_sizing_factor}.  This is based on input distance from the foundation ({input_distance}) and 
+                the {input_soil_type.lower()} soil.''')
+
+            # Formula to calculate potential storm runoff caught per year:
+            # Rain diverted = Catchment Area * total inches of rain/year * 0.004329 
+            # Multiplier for quantity of water in gallons one inch deep in one square foot of space
+            # Move into code block so value doesn't appear without other outputs
+            GALLONS_PER_CUBIC_INCH = 0.004329
+            storm_water_runoff = round((input_catchment_SA * 144) * total_precip_yr * GALLONS_PER_CUBIC_INCH)
+            print(f'''Your rain garden has the potential to divert and filter {storm_water_runoff:,} gallons of storm water each year.''')
+
         # Handle for rerunning code block without the calculate button  
         elif len(rg_instructions) > 0:
             print('Reusing saved instructions from prior inputs.')
             # Coerce input rate to a float, otherwise use soil type
-            perc_rate = float(input_perc_rate)
-            print(rg_sizing_factor)
-
+            perc_rate = getPercRate(input_perc_rate)
 
         else:
             print('Input values and then click the Calculate button.')
-
-        rg_notes = []
-        if {hardiness_zone}:
-            rg_notes = np.append(rg_notes, f'''Verify selected plants are all labelled as compatible with USDA Hardiness Zone {hardiness_zone}''')
-
-        if perc_rate:
-            rg_notes = np.append(rg_notes, f'''A common concern about rain gardens is a potential link with mosquitoes. However, rain gardens are meant to drain, not hold standing water.
-        With the drainage rate of {perc_rate:.2f} inches/hour, in the case of a one-hour 99.9% percentile precipitation event of ({threshold_precip_rate:.2f} inches/hour), 
-        the {round(rg_area)} sq foot rain garden should drain in {rg_drains_per_hour} hrs.''')
-
-        # If the area of the rain garden is less than 16 ft, do not show plants taller than 20 ft
-        if rg_area <= 16:
-            plants_data_for_user = plants_data_for_user[(plants_data_for_user['Height at 20 Years (feet)'] <= 20) | (plants_data_for_user['Height at 20 Years (feet)'].isnull())]
-
-        # Filter plants for display, for interior and perimeter of rain garden
-        rg_plants_display = plants_data_for_user.copy()
-        rg_plants_display = rg_plants_display[['CommonName','Height at 20 Years (feet)','Bloom Period','Flower Color','Moisture Use','Drought Tolerance','URL']]
-
-        rg_plants_interior = rg_plants_display[(rg_plants_display['Moisture Use'] == 'High')]
-        rg_plants_perimeter = rg_plants_display[(rg_plants_display['Moisture Use'] == 'Medium')]
-
 
 
   - cellType: CODE
@@ -1746,23 +1755,6 @@ cells:
       valueResultVariable: null
       comparisonResultVariable: null
       outputResult: false
-  - cellType: MARKDOWN
-    cellId: e732af81-77e6-4855-a19c-ed496404e9c1 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Section Break
-    config:
-      source: "## IMPACT OF YOUR RAIN GARDEN"
-  - cellType: CODE
-    cellId: b75177af-7bc6-4796-9de0-b6fad64d2666 # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
-    cellLabel: Calculate Storm Runoff Diverted
-    config:
-      source: |-
-        # Formula for potential rain caught per year:
-        # Rain diverted = Catchment Area * total inches of rain/year * 0.004329 
-        # Multiplier for quantity of water in gallons one inch deep in one square foot of space
-        GALLONS_PER_CUBIC_INCH = 0.004329
-        storm_water_runoff = round((input_catchment_SA * 144) * total_precip_yr * GALLONS_PER_CUBIC_INCH)
-
-        print(f'''Your rain garden has the potential to divert and filter {storm_water_runoff:,} gallons of storm water each year.''')
   - cellType: METRIC
     cellId: 7e1cf99e-011a-4d9c-be29-8278db33428c # DO NOT CHANGE - Hex uses this to match up cells when reimporting the file, and detect any changes to existing cells
     cellLabel: Annual Storm Water Diverted and Filtered 
@@ -2189,7 +2181,7 @@ appLayout:
                   cellId: 8ffab3d4-83a3-4e40-938b-93e591722bab
                   sharedFilterId: null
                   height: null
-                  showLabel: true
+                  showLabel: false
         - columns:
             - start: 0
               end: 30
@@ -2202,7 +2194,7 @@ appLayout:
                   height: null
                   showLabel: true
             - start: 30
-              end: 55
+              end: 60
               elements:
                 - showSource: false
                   hideOutput: false
@@ -2211,23 +2203,23 @@ appLayout:
                   sharedFilterId: null
                   height: null
                   showLabel: true
-            - start: 55
-              end: 85
+            - start: 60
+              end: 90
+              elements:
+                - showSource: false
+                  hideOutput: false
+                  type: CELL
+                  cellId: 03c93d46-e397-4171-94ad-c35e586c8821
+                  sharedFilterId: null
+                  height: null
+                  showLabel: true
+            - start: 90
+              end: 120
               elements:
                 - showSource: false
                   hideOutput: false
                   type: CELL
                   cellId: adf64772-fb3a-47d5-b13c-22cefd39baab
-                  sharedFilterId: null
-                  height: null
-                  showLabel: true
-            - start: 85
-              end: 110
-              elements:
-                - showSource: false
-                  hideOutput: false
-                  type: CELL
-                  cellId: 32d25a0f-6530-4992-9699-c2a80579fb79
                   sharedFilterId: null
                   height: null
                   showLabel: true
@@ -2243,27 +2235,17 @@ appLayout:
                   height: null
                   showLabel: true
             - start: 30
-              end: 55
+              end: 60
               elements:
                 - showSource: false
                   hideOutput: false
                   type: CELL
-                  cellId: 03c93d46-e397-4171-94ad-c35e586c8821
+                  cellId: 32d25a0f-6530-4992-9699-c2a80579fb79
                   sharedFilterId: null
                   height: null
                   showLabel: true
-            - start: 55
-              end: 80
-              elements:
-                - showSource: false
-                  hideOutput: false
-                  type: CELL
-                  cellId: 50a73c76-9805-4c3e-9dbe-741a39d558e5
-                  sharedFilterId: null
-                  height: null
-                  showLabel: true
-            - start: 80
-              end: 115
+            - start: 60
+              end: 90
               elements:
                 - showSource: false
                   hideOutput: false
@@ -2271,7 +2253,7 @@ appLayout:
                   cellId: ec0b9187-6428-4313-8f36-4fc1de34614c
                   sharedFilterId: null
                   height: null
-                  showLabel: false
+                  showLabel: true
         - columns:
             - start: 0
               end: 120
